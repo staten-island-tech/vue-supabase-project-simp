@@ -4,6 +4,5 @@
   </h1>
   <div>
     <NuxtRouteAnnouncer />
-    <NuxtWelcome />
   </div>
 </template>
