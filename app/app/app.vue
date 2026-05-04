@@ -22,7 +22,7 @@ onMounted(() => {
   <ul>
     <li v-for="todo in todos" :key="todo.id">{{ todo.name }} </li>
   </ul>
-  <h1>
+  <h1 class="text-3xl font-bold">
     hello world!
   </h1>
 </template>
