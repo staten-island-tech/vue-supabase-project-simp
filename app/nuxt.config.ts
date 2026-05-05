@@ -10,6 +10,9 @@ export default defineNuxtConfig({
   },
   modules: ['@pinia/nuxt', 
     '@nuxtjs/supabase'],
+  supabase: {
+    types: '~/types/database.type.ts'
+  },
   compatibilityDate: "2025-07-15",
   devtools: { enabled: true },
   css: ['./app/assets/css/main.css'],
