@@ -8,8 +8,7 @@ export default defineNuxtConfig({
       supabaseKey: process.env.SUPABASE_KEY,
     },
   },
-  modules: ['@pinia/nuxt', 
-    '@nuxtjs/supabase'],
+  modules: ['@nuxtjs/supabase', '@pinia/nuxt'],
   supabase: {
     types: '~/types/database.type.ts'
   },
