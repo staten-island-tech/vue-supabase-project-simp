@@ -2,17 +2,17 @@
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineNuxtConfig({
+  srcDir: "app",
   runtimeConfig: {
     public: {
       supabaseUrl: process.env.SUPABASE_URL,
       supabaseKey: process.env.SUPABASE_KEY,
     },
   },
-  modules: ['@pinia/nuxt', 
-    '@nuxtjs/supabase'],
+  modules: ['@pinia/nuxt', '@nuxtjs/supabase'],
   compatibilityDate: "2025-07-15",
   devtools: { enabled: true },
-  css: ['./app/assets/css/main.css'],
+  css: ['./assets/css/main.css'],
   vite: {
     plugins: [
       tailwindcss(),

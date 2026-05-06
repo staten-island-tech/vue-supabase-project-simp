@@ -1,28 +1,23 @@
-<script setup>
-import { createClient } from '@supabase/supabase-js';
-import { ref, onMounted } from 'vue';
+<script setup lang="ts">
+import { onMounted, onBeforeUnmount } from "vue";
 
-const config = useRuntimeConfig()
-const supabase = createClient(config.public.supabaseUrl, config.public.supabaseKey)
+const supabase = useSupabaseClient();
 
-const todos = ref([])
-
-async function getTodos() {
-  const { data } = await supabase.from('todos').select()
-  todos.value = data
-}
+let sub: any = null;
 
 onMounted(() => {
-  getTodos()
-})
+  sub = supabase.auth.onAuthStateChange((event, session) => {
+    if (event === "SIGNED_IN" && session) {
+      window.location.href = "/account";
+    }
+  });
+});
 
+onBeforeUnmount(() => {
+  sub?.data?.subscription?.unsubscribe?.();
+});
 </script>
 
 <template>
-  <ul>
-    <li v-for="todo in todos" :key="todo.id">{{ todo.name }} </li>
-  </ul>
-  <h1 class="text-3xl font-bold">
-    hello world!
-  </h1>
+<NuxtPage></NuxtPage>
 </template>
