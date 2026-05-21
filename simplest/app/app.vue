@@ -1,15 +1,25 @@
 <script setup>
 import { ref, onMounted } from 'vue'
-import { createClient } from '@supabase/supabase-js'
-
-const config = useRuntimeConfig()
-const supabase = createClient(config.public.supabaseUrl, config.public.supabaseKey)
+// use the Nuxt Supabase client injected by @nuxtjs/supabase
+const supabase = useSupabaseClient()
 
 const todos = ref([])
 
 async function getTodos() {
-  const { data } = await supabase.from('todos').select()
-  todos.value = data
+  if (!supabase) {
+    console.error('supabase client unavailable')
+    return
+  }
+  try {
+    const { data, error } = await supabase.from('todos').select()
+    if (error) {
+      console.error('supabase select error', error)
+      return
+    }
+    todos.value = data ?? []
+  } catch (e) {
+    console.error('unexpected error fetching todos', e)
+  }
 }
 
 onMounted(() => {
@@ -19,6 +29,6 @@ onMounted(() => {
 
 <template>
   <ul>
-    <li v-for="todo in todos" :key="todo.id">{{ todo.name }}</li>
+    <li v-for="todo in todos" :key="todo?.id">{{ todo?.name }}</li>
   </ul>
 </template>
