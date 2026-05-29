@@ -39,6 +39,13 @@
         {{ message }}
       </p>
     </div>
+    <button
+        type="button"
+        @click="navigateTo('/login')"
+        class="mt-4 text-sm text-sky-700 hover:underline"
+      >
+        Have an account? go back to sign in
+      </button>
   </div>
 </template>
 
