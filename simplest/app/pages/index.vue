@@ -25,7 +25,7 @@
 
         <!-- Placeholders / placeholders from your original -->
         <NuxtLink
-          to="/"
+          to="/inventory"
           class="rounded-2xl border border-slate-200 bg-slate-100 px-5 py-4 text-center text-slate-900 transition hover:bg-slate-200 font-bold"
         >
           📜 Quest Log (coming soon)
