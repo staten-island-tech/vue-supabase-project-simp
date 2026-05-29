@@ -1,56 +1,71 @@
 <template>
-  <div class="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-    <div class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-lg">
-      <h1 class="mb-6 text-2xl font-semibold text-slate-900">Sign in</h1>
+  <div class="min-h-screen bg-linear-to-b from-blue-400 via-purple-300 to-pink-300 flex items-center justify-center p-4">
+    <!-- Floating pets decoration -->
+    <div class="absolute top-10 right-10 text-6xl animate-bounce">🐱</div>
+    <div class="absolute top-32 left-16 text-5xl animate-pulse">🐾</div>
+    <div class="absolute bottom-24 right-16 text-7xl opacity-50">🌟</div>
 
-      <form @submit.prevent="signIn" class="space-y-5">
-        <label class="block text-sm font-medium text-slate-700">
-          Email
+    <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full relative z-10">
+      <div class="text-center mb-8">
+        <h1 class="text-4xl font-bold bg-linear-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
+          🧙‍♂️ Pet Kingdom Login
+        </h1>
+        <p class="text-gray-600 text-lg">Welcome back, Trainer! Feed, battle, and evolve your pets.</p>
+      </div>
+
+      <div
+        v-if="message"
+        class="mb-6 p-4 border-2 rounded-xl text-center"
+        :class="messageType === 'error'
+          ? 'bg-red-100 border-red-400 text-red-700'
+          : 'bg-green-100 border-green-400 text-green-700 font-bold'"
+      >
+        {{ message }}
+      </div>
+
+      <form @submit.prevent="signIn" class="space-y-4">
+        <div>
+          <label class="block text-sm font-bold text-gray-700 mb-2">Email</label>
           <input
             v-model="email"
             type="email"
             required
-            placeholder="you@example.com"
-            class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+            placeholder="you@kingdom.com"
+            class="w-full px-4 py-3 border-2 border-blue-200 rounded-xl focus:outline-none focus:border-blue-500 transition"
           />
-        </label>
+        </div>
 
-        <label class="block text-sm font-medium text-slate-700">
-          Password
+        <div>
+          <label class="block text-sm font-bold text-gray-700 mb-2">Password</label>
           <input
             v-model="password"
             type="password"
             required
-            placeholder="Enter your password"
-            class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+            placeholder="••••••••"
+            class="w-full px-4 py-3 border-2 border-blue-200 rounded-xl focus:outline-none focus:border-blue-500 transition"
           />
-        </label>
+        </div>
 
         <button
           type="submit"
-          class="w-full rounded-xl bg-sky-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-300"
+          class="w-full bg-linear-to-r from-blue-500 to-purple-500 text-white font-bold py-3 rounded-xl hover:shadow-lg transition transform hover:scale-105"
         >
-          Sign in
+          🔮 Enter the Hatchery
         </button>
       </form>
 
-      <p
-        v-if="message"
-        class="mt-5 rounded-xl border px-4 py-3 text-sm"
-        :class="messageType === 'error'
-          ? 'border-rose-200 bg-rose-50 text-rose-800'
-          : 'border-emerald-200 bg-emerald-50 text-emerald-800'"
-      >
-        {{ message }}
-      </p>
+      <div class="text-center text-gray-600 mt-6 space-y-2">
+        <p>
+          New Trainer?
+          <NuxtLink to="/signup" class="text-blue-700 font-bold hover:underline">
+            Hatch a new account
+          </NuxtLink>
+        </p>
 
-      <button
-        type="button"
-        @click="navigateTo('/signup')"
-        class="mt-4 text-sm text-sky-700 hover:underline"
-      >
-        Don’t have an account? Sign up
-      </button>
+        <p class="text-sm opacity-80">
+          Tip: If you don’t see your pet progress, make sure you verified your email (if enabled).
+        </p>
+      </div>
     </div>
   </div>
 </template>
@@ -66,10 +81,10 @@ const messageType = ref('success')
 const supabase = useSupabaseClient()
 
 const signIn = async () => {
-  message.value = 'Signing in...'
+  message.value = 'Summoning your trainer profile...'
   messageType.value = 'success'
 
-  const { data, error } = await supabase.auth.signInWithPassword({
+  const { error } = await supabase.auth.signInWithPassword({
     email: email.value,
     password: password.value,
   })
@@ -80,7 +95,7 @@ const signIn = async () => {
     return
   }
 
-  message.value = 'Signed in successfully!'
+  message.value = 'Welcome back! Your pets are waiting ✨'
   messageType.value = 'success'
 
   await navigateTo('/')
