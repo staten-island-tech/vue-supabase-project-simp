@@ -1,83 +1,88 @@
-<script setup>
-const supabase = useSupabaseClient()
-
-const email = ref('')
-const password = ref('')
-const loading = ref(false)
-const errorMsg = ref(null)
-
-async function login() {
-  errorMsg.value = null
-  loading.value = true
-  try {
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email.value,
-      password: password.value,
-    })
-    if (error) throw error
-  } catch (e) {
-    errorMsg.value = e?.message || 'Login failed'
-  } finally {
-    loading.value = false
-  }
-}
-</script>
-
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-    <div class="w-full max-w-md bg-white rounded-2xl shadow-sm p-6">
-      <h1 class="text-2xl font-semibold text-gray-900">Login</h1>
+  <div class="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+    <div class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-lg">
+      <h1 class="mb-6 text-2xl font-semibold text-slate-900">Sign in</h1>
 
-      <form class="mt-6 space-y-4" @submit.prevent="login">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+      <form @submit.prevent="signIn" class="space-y-5">
+        <label class="block text-sm font-medium text-slate-700">
+          Email
           <input
             v-model="email"
             type="email"
-            class="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="you@example.com"
-            autocomplete="email"
             required
+            placeholder="you@example.com"
+            class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
           />
-        </div>
+        </label>
 
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+        <label class="block text-sm font-medium text-slate-700">
+          Password
           <input
             v-model="password"
             type="password"
-            class="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="••••••••"
-            autocomplete="current-password"
             required
+            placeholder="Enter your password"
+            class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
           />
-        </div>
+        </label>
 
         <button
           type="submit"
-          :disabled="loading"
-          class="w-full rounded-lg bg-blue-600 text-white py-2.5 font-medium hover:bg-blue-700 disabled:opacity-60"
+          class="w-full rounded-xl bg-sky-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-300"
         >
-          {{ loading ? 'Logging in…' : 'Login' }}
+          Sign in
         </button>
       </form>
 
-      <p v-if="errorMsg" class="mt-4 text-sm text-red-600">
-        {{ errorMsg }}
+      <p
+        v-if="message"
+        class="mt-5 rounded-xl border px-4 py-3 text-sm"
+        :class="messageType === 'error'
+          ? 'border-rose-200 bg-rose-50 text-rose-800'
+          : 'border-emerald-200 bg-emerald-50 text-emerald-800'"
+      >
+        {{ message }}
       </p>
 
-      <div class="mt-6 text-center text-sm text-gray-600">
-        <NuxtLink
-          to="/signup"
-          class="font-medium text-blue-600 hover:text-blue-700"
-        >
-          Don’t have an account? Sign up
-        </NuxtLink>
-      </div>
+      <button
+        type="button"
+        @click="navigateTo('/signup')"
+        class="mt-4 text-sm text-sky-700 hover:underline"
+      >
+        Don’t have an account? Sign up
+      </button>
     </div>
   </div>
 </template>
 
-<style scoped>
+<script setup>
+import { ref } from 'vue'
 
-</style>
+const email = ref('')
+const password = ref('')
+const message = ref('')
+const messageType = ref('success')
+
+const supabase = useSupabaseClient()
+
+const signIn = async () => {
+  message.value = 'Signing in...'
+  messageType.value = 'success'
+
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: email.value,
+    password: password.value,
+  })
+
+  if (error) {
+    message.value = error.message
+    messageType.value = 'error'
+    return
+  }
+
+  message.value = 'Signed in successfully!'
+  messageType.value = 'success'
+
+  await navigateTo('/')
+}
+</script>
