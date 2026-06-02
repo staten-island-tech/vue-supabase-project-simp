@@ -73,7 +73,7 @@
             <p><strong>User ID:</strong> {{ currentUserId || 'NONE' }}</p>
             <p><strong>Selected item:</strong> {{ selectedItemLabel || 'NONE' }}</p>
           </div>
-          <div class="flex flex-col gap-4 sm:flex-row sm:items-end">
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-end">
             <div class="flex-1">
               <label class="block text-sm font-medium text-amber-900">
                 Select item to add:
@@ -102,6 +102,13 @@
                 class="rounded-xl bg-slate-700 px-6 py-2 text-sm font-semibold text-white transition disabled:opacity-50 hover:enabled:bg-slate-800"
               >
                 Add first available item
+              </button>
+              <button
+                @click="createPotionNow"
+                :disabled="addingTestItem"
+                class="rounded-xl bg-emerald-600 px-6 py-2 text-sm font-semibold text-white transition disabled:opacity-50 hover:enabled:bg-emerald-700"
+              >
+                Create Health Potion
               </button>
             </div>
           </div>
@@ -169,39 +176,71 @@ const fetchAllItems = async () => {
 }
 
 const ensurePotionItemExists = async () => {
-  const { data: existing, error: existingError } = await supabase
-    .from('item')
-    .select('id, name, price')
-    .eq('name', potionName)
-    .maybeSingle()
+  try {
+    const { data: existing, error: existingError } = await supabase
+      .from('item')
+      .select('id, name, price')
+      .eq('name', potionName)
+      .maybeSingle()
 
-  if (existingError) {
-    console.error('Error checking potion item:', existingError)
+    if (existingError) {
+      console.error('Error checking potion item:', existingError)
+      testItemMessage.value = `Error checking potion: ${existingError.message}`
+      testItemError.value = true
+      return null
+    }
+
+    if (existing) {
+      return existing
+    }
+
+    const { data: inserted, error: insertError } = await supabase
+      .from('item')
+      .insert([
+        {
+          name: potionName,
+          price: potionPrice,
+          category: potionCategory,
+        },
+      ])
+      .select('id, name, price')
+      .maybeSingle()
+
+    if (insertError) {
+      console.error('Error creating potion item:', insertError)
+      testItemMessage.value = `Error creating potion: ${insertError.message}`
+      testItemError.value = true
+      return null
+    }
+
+    return inserted
+  } catch (err) {
+    console.error('Unexpected error in ensurePotionItemExists:', err)
+    testItemMessage.value = `Unexpected error: ${err?.message || String(err)}`
+    testItemError.value = true
     return null
   }
+}
 
-  if (existing) {
-    return existing
+const createPotionNow = async () => {
+  addingTestItem.value = true
+  testItemMessage.value = 'Creating potion item...'
+  testItemError.value = false
+
+  const potion = await ensurePotionItemExists()
+  if (!potion) {
+    testItemMessage.value = 'Failed to create potion.'
+    testItemError.value = true
+    addingTestItem.value = false
+    return
   }
 
-  const { data: inserted, error: insertError } = await supabase
-    .from('item')
-    .insert([
-      {
-        name: potionName,
-        price: potionPrice,
-        category: potionCategory,
-      },
-    ])
-    .select('id, name, price')
-    .maybeSingle()
-
-  if (insertError) {
-    console.error('Error creating potion item:', insertError)
-    return null
-  }
-
-  return inserted
+  // refresh list and preselect
+  await fetchAllItems()
+  selectedItemId.value = potion.id
+  testItemMessage.value = `Potion "${potion.name}" is ready to add.`
+  testItemError.value = false
+  addingTestItem.value = false
 }
 
 const fetchOwnedItems = async () => {
