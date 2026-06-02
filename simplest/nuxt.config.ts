@@ -1,4 +1,5 @@
-import tailwindcss from "@tailwindcss/vite";
+import tailwindcss from "@tailwindcss/vite"
+
 export default defineNuxtConfig({
   runtimeConfig: {
     public: {
@@ -14,8 +15,6 @@ export default defineNuxtConfig({
   css: ['./app/assets/css/main.css'],
   srcDir: 'app',
   vite: {
-    plugins: [
-      tailwindcss(),
-    ],
+    plugins: [tailwindcss()],
   },
 });

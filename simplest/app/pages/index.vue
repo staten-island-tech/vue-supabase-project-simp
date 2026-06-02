@@ -114,20 +114,20 @@
               <div class="mt-4 space-y-2 text-sm">
                 <div class="flex items-center justify-between bg-black bg-opacity-30 px-3 py-2 rounded-lg">
                   <span>EXP</span>
-                  <div class="w-32 bg-gray-700 rounded-full h-2">
-                    <div class="bg-blue-500 h-2 rounded-full" :style="{ width: `${(playerStore.activePet.experience % 100)}%` }"></div>
+                    <div class="w-32 bg-gray-700 rounded-full h-2">
+                    <div class="bg-blue-500 h-2 rounded-full" :style="{ width: (playerStore.activePet.experience % 100) + '%' }"></div>
                   </div>
                 </div>
                 <div class="flex items-center justify-between bg-black bg-opacity-30 px-3 py-2 rounded-lg">
                   <span>HUNGER</span>
                   <div class="w-32 bg-gray-700 rounded-full h-2">
-                    <div class="bg-green-500 h-2 rounded-full" :style="{ width: `${100 - playerStore.activePet.hunger}%` }"></div>
+                    <div class="bg-green-500 h-2 rounded-full" :style="{ width: (100 - playerStore.activePet.hunger) + '%' }"></div>
                   </div>
                 </div>
                 <div class="flex items-center justify-between bg-black bg-opacity-30 px-3 py-2 rounded-lg">
                   <span>HAPPINESS</span>
                   <div class="w-32 bg-gray-700 rounded-full h-2">
-                    <div class="bg-yellow-500 h-2 rounded-full" :style="{ width: `${playerStore.activePet.happiness}%` }"></div>
+                    <div class="bg-yellow-500 h-2 rounded-full" :style="{ width: playerStore.activePet.happiness + '%' }"></div>
                   </div>
                 </div>
               </div>
@@ -296,54 +296,8 @@
             </div>
           </div>
         </div>
-
-        <!-- Shop preview -->
-        <div class="rounded-3xl border-2 border-green-500 bg-linear-to-r from-green-900 to-emerald-900 p-6 mb-8">
-          <h3 class="text-2xl font-bold mb-4 flex items-center gap-2">
-            🛍️ Gem Shop
-          </h3>
-          <div class="grid md:grid-cols-3 gap-4">
-            <button
-              @click="purchaseGems(5000)"
-              class="bg-black bg-opacity-30 p-4 rounded-lg text-center hover:border-b-2 hover:border-yellow-500 transition transform hover:scale-105"
-            >
-              <p class="text-3xl mb-2">💰</p>
-              <p class="font-bold">Gold Bundle</p>
-              <p class="text-2xl text-yellow-300 font-black my-2">5,000 Gold</p>
-              <p class="text-xs text-green-200">$4.99</p>
-              <button class="w-full mt-3 bg-green-600 hover:bg-green-500 py-2 rounded-lg font-bold text-sm transition">
-                BUY
-              </button>
-            </button>
-
-            <button
-              @click="purchaseGems(50)"
-              class="bg-black bg-opacity-30 p-4 rounded-lg text-center border-2 border-yellow-500 hover:border-yellow-300 transition transform hover:scale-105"
-            >
-              <p class="text-3xl mb-2">💎</p>
-              <p class="font-bold">Popular Gem Pack</p>
-              <p class="text-2xl text-pink-300 font-black my-2">50 Gems</p>
-              <p class="text-xs text-green-200">$9.99</p>
-              <button class="w-full mt-3 bg-green-600 hover:bg-green-500 py-2 rounded-lg font-bold text-sm transition">
-                BUY
-              </button>
-            </button>
-
-            <button
-              @click="purchaseGems(200)"
-              class="bg-black bg-opacity-30 p-4 rounded-lg text-center hover:border-b-2 hover:border-purple-500 transition transform hover:scale-105"
-            >
-              <p class="text-3xl mb-2">🎰</p>
-              <p class="font-bold">Ultimate Gem Pack</p>
-              <p class="text-2xl text-pink-300 font-black my-2">200 Gems</p>
-              <p class="text-xs text-green-200">$29.99</p>
-              <button class="w-full mt-3 bg-green-600 hover:bg-green-500 py-2 rounded-lg font-bold text-sm transition">
-                BUY
-              </button>
-            </button>
-          </div>
-        </div>
       </div>
+
 
       <!-- Footer -->
       <div class="text-center py-6 border-t border-purple-700 mt-12">
