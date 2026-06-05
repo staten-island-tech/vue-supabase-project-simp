@@ -474,12 +474,38 @@ const battleRandom = async () => {
 
 const claimDailyRewards = async () => {
   try {
-    await playerStore.addGold(300)
-    notification.value = '🎁 Daily reward claimed! +300 Gold'
-    setTimeout(() => notification.value = '', 2000)
+    // Load today's challenges
+    const today = new Date().toISOString().split('T')[0]
+
+    // completed statuses come from user_daily_progress
+    const { data: challenges, error: challengesError } = await supabase
+      .from('daily_challenges')
+      .select('*')
+
+    if (challengesError) throw challengesError
+
+    // Load today's progress rows for the user
+    const { data: progressRows, error: progressError } = await supabase
+      .from('user_daily_progress')
+      .select('*')
+      .eq('user_id', playerStore.profile?.id)
+      .eq('date', today)
+
+    if (progressError) throw progressError
+
+    const completedChallengeIds = new Set((progressRows || []).filter(r => r.completed).map(r => r.challenge_id))
+
+    // Complete anything not completed yet
+    for (const c of challenges || []) {
+      if (completedChallengeIds.has(c.id)) continue
+      await playerStore.completeDailyChallenge(c.id)
+    }
+
+    notification.value = '🎁 Daily rewards processed!'
+    setTimeout(() => (notification.value = ''), 2000)
   } catch (err) {
     notification.value = '❌ Failed to claim rewards'
-    setTimeout(() => notification.value = '', 2000)
+    setTimeout(() => (notification.value = ''), 2000)
   }
 }
 

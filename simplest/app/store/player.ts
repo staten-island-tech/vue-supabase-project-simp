@@ -1,10 +1,17 @@
 import { defineStore } from 'pinia'
-import type { UserProfile, UserPet, PetSpecies, PetAbility, UserDailyProgress } from '../types/database.types'
+import type {
+  UserProfile,
+  UserPet,
+  PetSpecies,
+  PetAbility,
+  UserDailyProgress,
+  DailyChallenge
+} from '../types/database.types'
 
 export const usePlayerStore = defineStore('player', {
   state: () => ({
-    profile: null as UserProfile | null,
-    activePet: null as (UserPet & { species?: PetSpecies; abilities?: PetAbility[] }) | null,
+    profile: null as (UserProfile & Record<string, any>) | null,
+    activePet: null as (UserPet & { species?: PetSpecies | null; abilities?: PetAbility[] | null }) | null,
     pets: [] as (UserPet & { species?: PetSpecies })[] | [],
     dailyProgress: [] as UserDailyProgress[] | [],
     loading: false,
@@ -16,45 +23,46 @@ export const usePlayerStore = defineStore('player', {
     petCollection: (state) => state.pets,
     activePetLevel: (state) => state.activePet?.level ?? 0,
     activePetName: (state) => state.activePet?.nickname || state.activePet?.species?.name || 'Unknown',
-    goldBalance: (state) => state.profile?.gold ?? 0,
-    gemBalance: (state) => state.profile?.gems ?? 0,
+
+    // ✅ DB uses "coins" not "gold"
+    goldBalance: (state) => Number(state.profile?.coins ?? 0),
+    gemBalance: (state) => Number(state.profile?.gems ?? 0),
+
     trainerLevel: (state) => state.profile?.level ?? 1,
     nextLevelExp: (state) => {
       const level = state.profile?.level ?? 1
-      return level * 100 // Simple formula: each level needs level * 100 exp
+      return level * 100
     },
+
     dailyChallengesCompleted: (state) => state.dailyProgress.filter(d => d.completed).length,
   },
 
   actions: {
     async initializeNewPlayer(userId: string, email: string, trainerName: string) {
       const supabase = useSupabaseClient()
-      
+
       try {
         this.loading = true
         this.error = null
 
-        // Create user profile
+        // Create user profile in canonical table
         const { error: profileError } = await supabase
-          .from('user_profiles')
+          .from('profiles')
           .insert({
             id: userId,
             email,
             trainer_name: trainerName,
             level: 1,
             experience: 0,
-            gold: 500, // Starting gold
-            gems: 50, // Starting gems
+            coins: 500, // starting gold
+            gems: 50,
             total_pets_owned: 1,
             active_pet_id: null,
           })
 
         if (profileError) throw profileError
 
-        // Fetch profile
         await this.fetchPlayerProfile(userId)
-
-        // Give starter pets
         await this.giveStarterPets(userId)
 
         this.loading = false
@@ -70,15 +78,18 @@ export const usePlayerStore = defineStore('player', {
 
       try {
         this.loading = true
+        this.error = null
+
         const { data, error } = await supabase
-          .from('user_profiles')
+          .from('profiles')
           .select('*')
           .eq('id', userId)
           .single()
 
         if (error) throw error
 
-        this.profile = data
+        this.profile = data as any
+
         await this.fetchUserPets(userId)
         await this.fetchDailyProgress(userId)
       } catch (err: any) {
@@ -88,38 +99,39 @@ export const usePlayerStore = defineStore('player', {
       }
     },
 
-    async fetchUserPets(userId: string) {
-      const supabase = useSupabaseClient()
+async fetchUserPets(userId: string) {
+  const supabase = useSupabaseClient()
 
-      try {
-        const { data, error } = await supabase
-          .from('user_pets')
-          .select(`
-            *,
-            pet_species:pet_species_id(*)
-          `)
-          .eq('user_id', userId)
+  try {
+    const { data, error } = await supabase
+      .from('user_pets')
+      .select(`
+        *,
+        pet_species(*),
+        pet_species:pet_species_id(*)
+      `)
+      .eq('user_id', userId)
 
-        if (error) throw error
+    if (error) throw error
 
-        this.pets = data || []
+    // Ensure store types don’t fight Supabase nullability
+    const pets = (data ?? []) as any[]
+    this.pets = pets
 
-        // Set active pet
-        if (this.profile?.active_pet_id) {
-          this.activePet = this.pets.find(p => p.id === this.profile?.active_pet_id) || null
-        } else if (this.pets.length > 0) {
-          const firstPet = this.pets[0]
-          if (firstPet) {
-            this.activePet = firstPet
-            // Auto-set first pet as active
-            await this.setActivePet(firstPet.id)
-          }
-        }
-      } catch (err: any) {
-        this.error = err.message
-      }
-    },
+    const activeId = this.profile?.active_pet_id
 
+    if (activeId) {
+      this.activePet = (pets.find(p => p.id === activeId) ?? null) as any
+    } else if (pets.length > 0) {
+      this.activePet = pets[0] as any
+      await this.setActivePet(pets[0].id)
+    } else {
+      this.activePet = null
+    }
+  } catch (err: any) {
+    this.error = err.message
+  }
+},
     async fetchDailyProgress(userId: string) {
       const supabase = useSupabaseClient()
       const today = new Date().toISOString().split('T')[0]
@@ -133,7 +145,7 @@ export const usePlayerStore = defineStore('player', {
 
         if (error) throw error
 
-        this.dailyProgress = data || []
+        this.dailyProgress = (data || []) as any
       } catch (err: any) {
         this.error = err.message
       }
@@ -143,7 +155,6 @@ export const usePlayerStore = defineStore('player', {
       const supabase = useSupabaseClient()
 
       try {
-        // Get starter pet species (Mystic Kitten - common fire cat)
         const { data: species, error: speciesError } = await supabase
           .from('pet_species')
           .select('*')
@@ -151,8 +162,8 @@ export const usePlayerStore = defineStore('player', {
           .single()
 
         if (speciesError) throw speciesError
+        if (!species) return
 
-        // Create starter pet instance
         const { error: petError } = await supabase
           .from('user_pets')
           .insert({
@@ -170,8 +181,17 @@ export const usePlayerStore = defineStore('player', {
 
         if (petError) throw petError
 
-        // Fetch updated pets
         await this.fetchUserPets(userId)
+
+        // Keep counters in sync (optional, but aligns with your earlier logic)
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({
+            total_pets_owned: this.pets.length, // after refresh this should include new pet
+          })
+          .eq('id', userId)
+
+        if (profileError) throw profileError
       } catch (err: any) {
         this.error = err.message
       }
@@ -184,16 +204,14 @@ export const usePlayerStore = defineStore('player', {
         if (!this.profile) return
 
         const { error } = await supabase
-          .from('user_profiles')
+          .from('profiles')
           .update({ active_pet_id: petId })
           .eq('id', this.profile.id)
 
         if (error) throw error
 
         this.activePet = this.pets.find(p => p.id === petId) || null
-        if (this.profile) {
-          this.profile.active_pet_id = petId
-        }
+        if (this.profile) this.profile.active_pet_id = petId
       } catch (err: any) {
         this.error = err.message
       }
@@ -206,7 +224,6 @@ export const usePlayerStore = defineStore('player', {
         const pet = this.pets.find(p => p.id === petId)
         if (!pet) return
 
-        // Reduce hunger, increase happiness slightly
         const newHunger = Math.max(0, pet.hunger - 40)
         const newHappiness = Math.min(100, pet.happiness + 15)
 
@@ -220,11 +237,9 @@ export const usePlayerStore = defineStore('player', {
 
         if (error) throw error
 
-        // Update local state
         pet.hunger = newHunger
         pet.happiness = newHappiness
 
-        // Add 10 gold reward
         await this.addGold(10)
       } catch (err: any) {
         this.error = err.message
@@ -242,7 +257,6 @@ export const usePlayerStore = defineStore('player', {
         let newLevel = pet.level
         const expPerLevel = 100
 
-        // Level up logic
         while (newExp >= expPerLevel) {
           newExp -= expPerLevel
           newLevel += 1
@@ -258,11 +272,10 @@ export const usePlayerStore = defineStore('player', {
 
         if (error) throw error
 
-        // Update pet locally
         pet.experience = newExp
         pet.level = newLevel
 
-        // Give player experience too
+        // Give player experience too (same model as before)
         let playerExp = this.profile.experience + Math.floor(amount / 2)
         let playerLevel = this.profile.level
 
@@ -272,7 +285,7 @@ export const usePlayerStore = defineStore('player', {
         }
 
         const { error: profileError } = await supabase
-          .from('user_profiles')
+          .from('profiles')
           .update({
             experience: playerExp,
             level: playerLevel,
@@ -294,16 +307,16 @@ export const usePlayerStore = defineStore('player', {
       try {
         if (!this.profile) return
 
-        const newGold = this.profile.gold + amount
+        const newCoins = Number(this.profile.coins ?? 0) + amount
 
         const { error } = await supabase
-          .from('user_profiles')
-          .update({ gold: newGold })
+          .from('profiles')
+          .update({ coins: newCoins })
           .eq('id', this.profile.id)
 
         if (error) throw error
 
-        this.profile.gold = newGold
+        this.profile.coins = newCoins
       } catch (err: any) {
         this.error = err.message
       }
@@ -315,10 +328,10 @@ export const usePlayerStore = defineStore('player', {
       try {
         if (!this.profile) return
 
-        const newGems = this.profile.gems + amount
+        const newGems = Number(this.profile.gems ?? 0) + amount
 
         const { error } = await supabase
-          .from('user_profiles')
+          .from('profiles')
           .update({ gems: newGems })
           .eq('id', this.profile.id)
 
@@ -334,9 +347,8 @@ export const usePlayerStore = defineStore('player', {
       const supabase = useSupabaseClient()
 
       try {
-        if (!this.profile) return
+        if (!this.profile) return null
 
-        // Simple gacha: 60% common, 30% rare, 8% epic, 2% legendary
         const roll = Math.random()
         let rarity: 'common' | 'rare' | 'epic' | 'legendary'
 
@@ -345,7 +357,6 @@ export const usePlayerStore = defineStore('player', {
         else if (roll < 0.98) rarity = 'epic'
         else rarity = 'legendary'
 
-        // Get random pet of that rarity
         const { data: petSpecies, error: speciesError } = await supabase
           .from('pet_species')
           .select('*')
@@ -354,12 +365,15 @@ export const usePlayerStore = defineStore('player', {
           .single()
 
         if (speciesError) throw speciesError
+        if (!petSpecies) return null
 
-        // Deduct gems
-        const costInGems = rarity === 'legendary' ? 100 : rarity === 'epic' ? 50 : 10
+        const costInGems =
+          rarity === 'legendary' ? 100 :
+          rarity === 'epic' ? 50 :
+          10
+
         await this.addGems(-costInGems)
 
-        // Create pet instance
         const { error: petError } = await supabase
           .from('user_pets')
           .insert({
@@ -376,18 +390,15 @@ export const usePlayerStore = defineStore('player', {
 
         if (petError) throw petError
 
-        // Update total pets count
+        // Refresh and update total count
+        await this.fetchUserPets(this.profile.id)
+
         const { error: profileError } = await supabase
-          .from('user_profiles')
-          .update({ total_pets_owned: this.profile.total_pets_owned + 1 })
+          .from('profiles')
+          .update({ total_pets_owned: (this.pets.length || 0) })
           .eq('id', this.profile.id)
 
         if (profileError) throw profileError
-
-        this.profile.total_pets_owned += 1
-
-        // Refresh pet list
-        await this.fetchUserPets(this.profile.id)
 
         return petSpecies
       } catch (err: any) {
@@ -403,7 +414,6 @@ export const usePlayerStore = defineStore('player', {
 
         const today = new Date().toISOString().split('T')[0]
 
-        // Find challenge
         const { data: challenge, error: challengeError } = await supabase
           .from('daily_challenges')
           .select('*')
@@ -411,8 +421,8 @@ export const usePlayerStore = defineStore('player', {
           .single()
 
         if (challengeError) throw challengeError
+        if (!challenge) return
 
-        // Mark as completed
         const { error } = await supabase
           .from('user_daily_progress')
           .update({
@@ -426,13 +436,12 @@ export const usePlayerStore = defineStore('player', {
 
         if (error) throw error
 
-        // Give rewards
         await this.addGold(challenge.reward_gold)
+
         if (this.activePet) {
           await this.addExperience(this.activePet.id, challenge.reward_experience)
         }
 
-        // Refresh progress
         await this.fetchDailyProgress(this.profile.id)
       } catch (err: any) {
         this.error = err.message

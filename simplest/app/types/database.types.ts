@@ -5,7 +5,7 @@ export interface UserProfile {
   trainer_name: string
   level: number
   experience: number
-  gold: number
+  coins: number          // ✅ rename gold -> coins
   gems: number
   total_pets_owned: number
   active_pet_id: string | null
@@ -40,9 +40,26 @@ export interface UserPet {
   hunger: number // 0-100, 0 = full, 100 = starving
   happiness: number // 0-100, 0 = sad, 100 = very happy
   affection: number // 0-100, relationship bonding
-  nickname: string | null
-  caught_at: string
-  updated_at: string
+   
+nickname
+: 
+string
+ | 
+null
+
+  
+caught_at
+: 
+string
+ | 
+null
+
+  
+updated_at
+: 
+string
+ | 
+null
 }
 
 // Pet ability/move
