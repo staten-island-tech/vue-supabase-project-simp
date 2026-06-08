@@ -36,10 +36,6 @@
               <p class="text-xs text-purple-300">GOLD</p>
               <p class="text-xl font-bold text-yellow-300">💰 {{ playerStore.goldBalance }}</p>
             </div>
-            <div class="text-center">
-              <p class="text-xs text-purple-300">GEMS</p>
-              <p class="text-xl font-bold text-pink-300">💎 {{ playerStore.gemBalance }}</p>
-            </div>
             <button
               @click="logout"
               class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 font-bold text-sm transition transform hover:scale-105"
@@ -60,7 +56,7 @@
           >
             <p class="text-4xl mb-2">🎰</p>
             <h3 class="font-bold text-lg">Summon Pets</h3>
-            <p class="text-xs text-yellow-200 mt-1">Cost: 10 💎</p>
+            <p class="text-xs text-yellow-200 mt-1">Cost: 10 💰</p>
             <p class="text-xs text-yellow-200 mt-2">{{ petCollection.length }}/50 Owned</p>
           </button>
 
@@ -271,30 +267,6 @@
               </button>
             </div>
           </div>
-
-          <div class="rounded-3xl border-2 border-pink-500 bg-linear-to-r from-pink-900 to-red-900 p-6">
-            <h3 class="text-2xl font-bold mb-4 flex items-center gap-2">
-              🌟 Weekly Events
-            </h3>
-            <div class="space-y-3">
-              <div class="bg-black bg-opacity-30 p-4 rounded-lg border-l-4 border-pink-500">
-                <p class="font-bold">Double XP Weekend</p>
-                <p class="text-xs text-pink-200">Earn 2x experience on all battles</p>
-                <div class="w-full bg-gray-700 rounded-full h-2 mt-2">
-                  <div class="bg-pink-500 h-2 rounded-full" style="width: 50%"></div>
-                </div>
-                <p class="text-xs text-pink-200 mt-1">2 days left</p>
-              </div>
-              <div class="bg-black bg-opacity-30 p-4 rounded-lg border-l-4 border-purple-500">
-                <p class="font-bold">Dragon Summoning Event</p>
-                <p class="text-xs text-purple-200">50% chance to summon rare dragons</p>
-                <div class="w-full bg-gray-700 rounded-full h-2 mt-2">
-                  <div class="bg-purple-500 h-2 rounded-full" style="width: 30%"></div>
-                </div>
-                <p class="text-xs text-purple-200 mt-1">5 days left</p>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -311,20 +283,20 @@
       <div v-if="showSummonModal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
         <div class="bg-linear-to-br from-yellow-900 to-orange-900 rounded-3xl border-2 border-yellow-500 p-8 max-w-md w-full">
           <h2 class="text-3xl font-bold mb-4 text-center">🎰 Summon a Pet!</h2>
-          <p class="text-center text-yellow-200 mb-6">Cost: 10 💎 per summon</p>
+          <p class="text-center text-yellow-200 mb-6">Cost: 10 💰 per summon</p>
 
           <div class="space-y-3 mb-6">
             <button
               @click="summonPet(1)"
               class="w-full bg-yellow-600 hover:bg-yellow-500 py-3 rounded-lg font-bold transition transform hover:scale-105"
             >
-              Summon 1 (10 💎)
+              Summon 1 (10 💰)
             </button>
             <button
               @click="summonPet(10)"
               class="w-full bg-yellow-600 hover:bg-yellow-500 py-3 rounded-lg font-bold transition transform hover:scale-105"
             >
-              Summon 10 (90 💎) - DISCOUNT!
+              Summon 10 (90 💰) - DISCOUNT!
             </button>
           </div>
 
@@ -420,10 +392,10 @@ const selectActivePet = async (petId: string) => {
 
 const summonPet = async (count: number) => {
   try {
-    const costInGems = count * 10 * (count === 10 ? 0.9 : 1) // 10% discount for 10x
+    const costInGold = count * 10 * (count === 10 ? 0.9 : 1) // 10% discount for 10x
 
-    if (playerStore.gemBalance < costInGems) {
-      notification.value = '❌ Not enough gems!'
+    if (playerStore.goldBalance < costInGold) {
+      notification.value = '❌ Not enough gold!'
       setTimeout(() => notification.value = '', 2000)
       return
     }
@@ -474,29 +446,38 @@ const battleRandom = async () => {
 
 const claimDailyRewards = async () => {
   try {
-    // Load today's challenges
     const today = new Date().toISOString().split('T')[0]
 
-    // completed statuses come from user_daily_progress
+    if (!playerStore.profile?.id) return
+
+    // ✅ Ensure rows exist for today (for all challenges)
+    await supabase.rpc('ensure_user_daily_progress', {
+      p_user_id: playerStore.profile.id,
+      p_date: today,
+    })
+
+    // Load challenges
     const { data: challenges, error: challengesError } = await supabase
       .from('daily_challenges')
       .select('*')
 
     if (challengesError) throw challengesError
 
-    // Load today's progress rows for the user
+    // Load today's progress rows
     const { data: progressRows, error: progressError } = await supabase
       .from('user_daily_progress')
       .select('*')
-      .eq('user_id', playerStore.profile?.id)
+      .eq('user_id', playerStore.profile.id)
       .eq('date', today)
 
     if (progressError) throw progressError
 
-    const completedChallengeIds = new Set((progressRows || []).filter(r => r.completed).map(r => r.challenge_id))
+    const completedChallengeIds = new Set(
+      (progressRows || []).filter(r => r.completed).map(r => r.challenge_id)
+    )
 
     // Complete anything not completed yet
-    for (const c of challenges || []) {
+    for (const c of (challenges || [])) {
       if (completedChallengeIds.has(c.id)) continue
       await playerStore.completeDailyChallenge(c.id)
     }
@@ -507,11 +488,6 @@ const claimDailyRewards = async () => {
     notification.value = '❌ Failed to claim rewards'
     setTimeout(() => (notification.value = ''), 2000)
   }
-}
-
-const purchaseGems = (amount: number) => {
-  notification.value = `💳 Purchase feature coming soon! (${amount} items)`
-  setTimeout(() => notification.value = '', 2000)
 }
 
 onMounted(async () => {

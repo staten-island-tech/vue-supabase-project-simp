@@ -26,7 +26,6 @@ export const usePlayerStore = defineStore('player', {
 
     // ✅ DB uses "coins" not "gold"
     goldBalance: (state) => Number(state.profile?.coins ?? 0),
-    gemBalance: (state) => Number(state.profile?.gems ?? 0),
 
     trainerLevel: (state) => state.profile?.level ?? 1,
     nextLevelExp: (state) => {
@@ -55,7 +54,6 @@ export const usePlayerStore = defineStore('player', {
             level: 1,
             experience: 0,
             coins: 500, // starting gold
-            gems: 50,
             total_pets_owned: 1,
             active_pet_id: null,
           })
@@ -105,16 +103,11 @@ async fetchUserPets(userId: string) {
   try {
     const { data, error } = await supabase
       .from('user_pets')
-      .select(`
-        *,
-        pet_species(*),
-        pet_species:pet_species_id(*)
-      `)
+      .select('*, pet_species(*)')
       .eq('user_id', userId)
 
     if (error) throw error
 
-    // Ensure store types don’t fight Supabase nullability
     const pets = (data ?? []) as any[]
     this.pets = pets
 
@@ -322,89 +315,74 @@ async fetchUserPets(userId: string) {
       }
     },
 
-    async addGems(amount: number) {
-      const supabase = useSupabaseClient()
-
-      try {
-        if (!this.profile) return
-
-        const newGems = Number(this.profile.gems ?? 0) + amount
-
-        const { error } = await supabase
-          .from('profiles')
-          .update({ gems: newGems })
-          .eq('id', this.profile.id)
-
-        if (error) throw error
-
-        this.profile.gems = newGems
-      } catch (err: any) {
-        this.error = err.message
-      }
-    },
-
     async summonPet() {
-      const supabase = useSupabaseClient()
+  const supabase = useSupabaseClient()
 
-      try {
-        if (!this.profile) return null
+  try {
+    if (!this.profile) return null
 
-        const roll = Math.random()
-        let rarity: 'common' | 'rare' | 'epic' | 'legendary'
+    const roll = Math.random()
+    let rarity: 'common' | 'rare' | 'epic' | 'legendary'
 
-        if (roll < 0.6) rarity = 'common'
-        else if (roll < 0.9) rarity = 'rare'
-        else if (roll < 0.98) rarity = 'epic'
-        else rarity = 'legendary'
+    if (roll < 0.6) rarity = 'common'
+    else if (roll < 0.9) rarity = 'rare'
+    else if (roll < 0.98) rarity = 'epic'
+    else rarity = 'legendary'
 
-        const { data: petSpecies, error: speciesError } = await supabase
-          .from('pet_species')
-          .select('*')
-          .eq('rarity', rarity)
-          .limit(1)
-          .single()
+    const { data: petSpecies, error: speciesError } = await supabase
+      .from('pet_species')
+      .select('*')
+      .eq('rarity', rarity)
+      .limit(1)
+      .single()
 
-        if (speciesError) throw speciesError
-        if (!petSpecies) return null
+    if (speciesError) throw speciesError
+    if (!petSpecies) return null
 
-        const costInGems =
-          rarity === 'legendary' ? 100 :
-          rarity === 'epic' ? 50 :
-          10
+    const costInGold =
+      rarity === 'legendary' ? 1000 :
+      rarity === 'epic' ? 500 :
+      100
 
-        await this.addGems(-costInGems)
+    // Ensure you have enough gold
+    const currentGold = Number(this.profile.coins ?? 0)
+    if (currentGold < costInGold) {
+      throw new Error('Not enough gold to summon')
+    }
 
-        const { error: petError } = await supabase
-          .from('user_pets')
-          .insert({
-            user_id: this.profile.id,
-            pet_species_id: petSpecies.id,
-            level: 1,
-            experience: 0,
-            current_hp: petSpecies.base_hp,
-            max_hp: petSpecies.base_hp,
-            hunger: 50,
-            happiness: 70,
-            affection: 0,
-          })
+    await this.addGold(-costInGold)
 
-        if (petError) throw petError
+    const { error: petError } = await supabase
+      .from('user_pets')
+      .insert({
+        user_id: this.profile.id,
+        pet_species_id: petSpecies.id,
+        level: 1,
+        experience: 0,
+        current_hp: petSpecies.base_hp,
+        max_hp: petSpecies.base_hp,
+        hunger: 50,
+        happiness: 70,
+        affection: 0,
+      })
 
-        // Refresh and update total count
-        await this.fetchUserPets(this.profile.id)
+    if (petError) throw petError
 
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({ total_pets_owned: (this.pets.length || 0) })
-          .eq('id', this.profile.id)
+    await this.fetchUserPets(this.profile.id)
 
-        if (profileError) throw profileError
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({ total_pets_owned: this.pets.length })
+      .eq('id', this.profile.id)
 
-        return petSpecies
-      } catch (err: any) {
-        this.error = err.message
-      }
-    },
+    if (profileError) throw profileError
+
+    return petSpecies
+  } catch (err: any) {
+    this.error = err.message
+    throw err
+  }
+},
 
     async completeDailyChallenge(challengeId: string) {
       const supabase = useSupabaseClient()
