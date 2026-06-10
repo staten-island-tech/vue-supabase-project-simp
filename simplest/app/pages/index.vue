@@ -1,8 +1,29 @@
 <template>
-  <div class="min-h-screen bg-gradient-to-r from-pink-200 to-blue-300 flex flex-col items-center justify-center p-6">
-    <!-- Decorative background elements -->
-    <div class="absolute top-0 right-0 w-96 h-96 bg-purple-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 pointer-events-none"></div>
-    <div class="absolute bottom-0 left-0 w-96 h-96 bg-blue-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 pointer-events-none"></div>
+  <div 
+    class="min-h-screen bg-gradient-to-r from-pink-200 to-blue-300 flex flex-col items-center justify-center p-6 overflow-hidden relative"
+    @mousemove="handleMouseMove"
+  >
+    <!-- Interactive background elements -->
+    <div 
+      class="absolute top-0 right-0 w-96 h-96 bg-purple-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 pointer-events-none transition-all duration-100 ease-out"
+      :style="{ 
+        transform: `translate(${(cursorX - windowWidth / 2) * 0.03}px, ${(cursorY - windowHeight / 2) * 0.03}px)`
+      }"
+    ></div>
+    <div 
+      class="absolute bottom-0 left-0 w-96 h-96 bg-blue-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 pointer-events-none transition-all duration-100 ease-out"
+      :style="{ 
+        transform: `translate(${(cursorX - windowWidth / 2) * -0.02}px, ${(cursorY - windowHeight / 2) * -0.02}px)`
+      }"
+    ></div>
+    
+    <!-- Extra fluid accent -->
+    <div 
+      class="absolute top-1/2 left-1/4 w-80 h-80 bg-pink-200 rounded-full mix-blend-multiply filter blur-3xl opacity-15 pointer-events-none transition-all duration-100 ease-out"
+      :style="{ 
+        transform: `translate(${(cursorX - windowWidth / 2) * 0.025}px, ${(cursorY - windowHeight / 2) * 0.025}px)`
+      }"
+    ></div>
 
     <div class="w-full max-w-2xl rounded-3xl border border-white/40 bg-white/80 backdrop-blur-lg p-12 shadow-2xl relative z-10">
       <!-- Header Section -->
@@ -63,3 +84,32 @@
     </div>
   </div>
 </template>
+
+<script setup>
+import { ref, onMounted, onUnmounted } from 'vue'
+
+const cursorX = ref(0)
+const cursorY = ref(0)
+const windowWidth = ref(window.innerWidth)
+const windowHeight = ref(window.innerHeight)
+
+const handleMouseMove = (event) => {
+  cursorX.value = event.clientX
+  cursorY.value = event.clientY
+}
+
+const handleResize = () => {
+  windowWidth.value = window.innerWidth
+  windowHeight.value = window.innerHeight
+}
+
+onMounted(() => {
+  window.addEventListener('mousemove', handleMouseMove)
+  window.addEventListener('resize', handleResize)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('mousemove', handleMouseMove)
+  window.removeEventListener('resize', handleResize)
+})
+</script>

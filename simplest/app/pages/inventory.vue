@@ -1,6 +1,6 @@
 <template>
-  <div class="min-h-screen bg-slate-50 p-6">
-    <div class="mx-auto max-w-6xl rounded-3xl border border-slate-200 bg-white p-8 shadow-xl">
+  <div class="min-h-screen bg-gradient-to-r from-pink-300 to-blue-400 p-6">
+    <div class="mx-auto max-w-6xl rounded-3xl border border-white/40 bg-white/80 backdrop-blur-lg p-8 shadow-2xl">
       <div class="mb-8 flex flex-col gap-4">
         <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -50,17 +50,17 @@
 
       <div v-else>
         <div class="grid gap-6 lg:grid-cols-2">
-          <section class="rounded-3xl border border-slate-200 bg-slate-50 p-6">
-            <h2 class="mb-4 text-xl font-semibold text-slate-900">All Available Items</h2>
-            <div v-if="allItems.length === 0" class="rounded-3xl border border-slate-200 bg-white p-4 text-slate-700">
-              No items found in the items table.
+          <section class="rounded-3xl border border-blue-200/40 bg-gradient-to-br from-blue-50/60 to-blue-100/60 backdrop-blur-sm p-6 shadow-lg">
+            <h2 class="mb-4 text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent">🎁 All Available Items</h2>
+            <div v-if="allItems.length === 0" class="rounded-2xl border border-blue-200 bg-blue-50/80 p-6 text-center text-blue-700">
+              <p class="font-semibold">No items found</p>
             </div>
             <ul v-else class="space-y-3">
-              <li v-for="item in allItems" :key="item.id" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <li v-for="item in allItems" :key="item.id" class="rounded-2xl border border-white/60 bg-white/80 backdrop-blur-sm p-4 shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 hover:border-blue-300">
                 <div class="flex flex-col gap-2">
                   <div class="flex items-center justify-between gap-4">
-                    <p class="font-semibold text-slate-900">{{ item.name }}</p>
-                    <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">{{ item.rarity || 'Common' }}</span>
+                    <p class="font-bold text-slate-900">{{ item.name }}</p>
+                    <span class="rounded-full bg-gradient-to-r from-blue-500 to-blue-600 px-3 py-1 text-xs font-bold text-white shadow-md">{{ item.rarity || 'Common' }}</span>
                   </div>
                   <p class="text-sm text-slate-600">{{ item.description || 'No description available.' }}</p>
                 </div>
@@ -68,29 +68,31 @@
             </ul>
           </section>
 
-          <section class="rounded-3xl border border-slate-200 bg-slate-50 p-6">
+          <section class="rounded-3xl border border-purple-200/40 bg-gradient-to-br from-purple-50/60 to-purple-100/60 backdrop-blur-sm p-6 shadow-lg">
             <div class="mb-4 flex items-center justify-between gap-4">
               <div>
-                <h2 class="text-xl font-semibold text-slate-900">Your Inventory</h2>
+                <h2 class="text-2xl font-bold bg-gradient-to-r from-purple-600 to-purple-700 bg-clip-text text-transparent">👜 Your Inventory</h2>
                 <p class="text-sm text-slate-600">Only items you own are shown here.</p>
               </div>
-              <span class="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-700">{{ ownedList.length }} owned</span>
+              <span class="rounded-full bg-gradient-to-r from-purple-500 to-purple-600 px-4 py-2 text-sm font-bold text-white shadow-lg">{{ ownedList.length }} owned</span>
             </div>
 
-            <div v-if="loading" class="rounded-3xl border border-slate-200 bg-white p-4 text-slate-700">Loading your inventory...</div>
-            <div v-else-if="error" class="rounded-3xl border border-rose-200 bg-rose-50 p-4 text-rose-800 whitespace-pre-wrap text-sm">{{ error }}</div>
-            <div v-else-if="ownedList.length === 0" class="rounded-3xl border border-slate-200 bg-white p-4 text-slate-700">
-              No owned items were found for your account.
+            <div v-if="loading" class="rounded-2xl border border-purple-200 bg-purple-50/80 p-6 text-center text-purple-700 font-semibold">Loading your inventory...</div>
+            <div v-else-if="error" class="rounded-2xl border border-red-200 bg-red-50/80 p-4 text-red-800 whitespace-pre-wrap text-sm font-semibold">{{ error }}</div>
+            <div v-else-if="ownedList.length === 0" class="rounded-2xl border border-purple-200 bg-purple-50/80 p-6 text-center text-purple-700">
+              <p class="font-semibold">No owned items yet</p>
             </div>
             <ul v-else class="space-y-3">
-              <li v-for="item in ownedList" :key="item.id" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <li v-for="item in ownedList" :key="item.id" class="rounded-2xl border border-white/60 bg-gradient-to-r from-white/80 to-purple-50/60 backdrop-blur-sm p-4 shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 hover:border-purple-300">
                 <div class="flex flex-col gap-2">
                   <div class="flex items-center justify-between gap-4">
-                    <p class="font-semibold text-slate-900">{{ item.name }}</p>
-                    <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">{{ item.rarity }}</span>
+                    <p class="font-bold text-slate-900">{{ item.name }}</p>
+                    <span class="rounded-full bg-gradient-to-r from-purple-500 to-purple-600 px-3 py-1 text-xs font-bold text-white shadow-md">{{ item.rarity }}</span>
                   </div>
-                  <p class="text-sm text-slate-600">Quantity: {{ item.amount }}</p>
-                  <p class="text-sm text-slate-600">{{ item.description || 'No description available.' }}</p>
+                  <div class="flex justify-between items-center">
+                    <p class="text-sm text-slate-600">{{ item.description || 'No description available.' }}</p>
+                    <span class="bg-gradient-to-r from-purple-400 to-purple-500 text-white font-bold px-4 py-1 rounded-full text-sm shadow-md">{{ item.amount }}</span>
+                  </div>
                 </div>
               </li>
             </ul>
@@ -126,20 +128,6 @@
                 class="rounded-xl bg-amber-600 px-6 py-2 text-sm font-semibold text-white transition disabled:opacity-50 hover:enabled:bg-amber-700"
               >
                 {{ addingTestItem ? 'Adding...' : 'Add Item' }}
-              </button>
-              <button
-                @click="addTestItem(true)"
-                :disabled="allItems.length === 0 || addingTestItem"
-                class="rounded-xl bg-slate-700 px-6 py-2 text-sm font-semibold text-white transition disabled:opacity-50 hover:enabled:bg-slate-800"
-              >
-                Add first available item
-              </button>
-              <button
-                @click="createPotionNow"
-                :disabled="addingTestItem"
-                class="rounded-xl bg-emerald-600 px-6 py-2 text-sm font-semibold text-white transition disabled:opacity-50 hover:enabled:bg-emerald-700"
-              >
-                Create Health Potion
               </button>
             </div>
           </div>

@@ -160,7 +160,7 @@ const supabase = useSupabaseClient()
 const currentPet = ref({
   name: 'Flutterby',
   emoji: '🦋',
-  level: 5,
+  level: 1,
   exp: 45,
   hp: 80,
   maxHp: 100,
