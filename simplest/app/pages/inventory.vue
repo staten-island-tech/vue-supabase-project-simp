@@ -1,17 +1,47 @@
 <template>
   <div class="min-h-screen bg-slate-50 p-6">
     <div class="mx-auto max-w-6xl rounded-3xl border border-slate-200 bg-white p-8 shadow-xl">
-      <div class="mb-8 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 class="text-3xl font-semibold text-slate-900">Inventory</h1>
-          <p class="text-slate-600">Your user inventory is loaded from Supabase and only shows items you own.</p>
+      <div class="mb-8 flex flex-col gap-4">
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 class="text-3xl font-semibold text-slate-900">📜 Inventory</h1>
+            <p class="text-slate-600">Your user inventory is loaded from Supabase and only shows items you own.</p>
+          </div>
+          <button
+            @click="fetchOwnedItems"
+            class="rounded-full bg-sky-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-sky-700"
+          >
+            Refresh
+          </button>
         </div>
-        <button
-          @click="fetchOwnedItems"
-          class="rounded-full bg-sky-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-sky-700"
-        >
-          Refresh
-        </button>
+
+        <!-- Navigation Buttons -->
+        <div class="flex flex-wrap gap-3">
+          <NuxtLink
+            to="/"
+            class="rounded-full bg-gradient-to-r from-pink-400 to-pink-500 hover:from-pink-500 hover:to-pink-600 px-6 py-2 text-sm font-semibold text-white shadow-lg hover:shadow-xl transition-all duration-300"
+          >
+            🏰 Home
+          </NuxtLink>
+          <NuxtLink
+            to="/pet"
+            class="rounded-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 px-6 py-2 text-sm font-semibold text-white shadow-lg hover:shadow-xl transition-all duration-300"
+          >
+            🐣 Pet Manager
+          </NuxtLink>
+          <NuxtLink
+            to="/login"
+            class="rounded-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 px-6 py-2 text-sm font-semibold text-white shadow-lg hover:shadow-xl transition-all duration-300"
+          >
+            🚪 Login
+          </NuxtLink>
+          <NuxtLink
+            to="/signup"
+            class="rounded-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 px-6 py-2 text-sm font-semibold text-white shadow-lg hover:shadow-xl transition-all duration-300"
+          >
+            🐣 Sign Up
+          </NuxtLink>
+        </div>
       </div>
 
       <div v-if="!currentUserId" class="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-rose-800">
@@ -173,53 +203,6 @@ const fetchAllItems = async () => {
   allItems.value = data || []
   if (!selectedItemId.value && allItems.value.length > 0) {
     selectedItemId.value = allItems.value[0].id
-  }
-}
-
-const ensurePotionItemExists = async () => {
-  try {
-    const { data: existing, error: existingError } = await supabase
-      .from('items')
-      .select('id, name, description, rarity')
-      .eq('name', potionName)
-      .maybeSingle()
-
-    if (existingError) {
-      console.error('Error checking potion item:', existingError)
-      testItemMessage.value = `Error checking potion: ${existingError.message}`
-      testItemError.value = true
-      return null
-    }
-
-    if (existing) {
-      return existing
-    }
-
-    const { data: inserted, error: insertError } = await supabase
-      .from('items')
-      .insert([
-        {
-          name: potionName,
-          description: potionDescription,
-          rarity: potionRarity,
-        },
-      ])
-      .select('id, name, description, rarity')
-      .maybeSingle()
-
-    if (insertError) {
-      console.error('Error creating potion item:', insertError)
-      testItemMessage.value = `Error creating potion: ${insertError.message}`
-      testItemError.value = true
-      return null
-    }
-
-    return inserted
-  } catch (err) {
-    console.error('Unexpected error in ensurePotionItemExists:', err)
-    testItemMessage.value = `Unexpected error: ${err?.message || String(err)}`
-    testItemError.value = true
-    return null
   }
 }
 
