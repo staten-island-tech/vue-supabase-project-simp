@@ -27,12 +27,12 @@
             </div>
             <ul v-else class="space-y-3">
               <li v-for="item in allItems" :key="item.id" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div class="flex items-center justify-between gap-4">
-                  <div>
+                <div class="flex flex-col gap-2">
+                  <div class="flex items-center justify-between gap-4">
                     <p class="font-semibold text-slate-900">{{ item.name }}</p>
-                    <p class="text-sm text-slate-600">Price: ${{ item.price }}</p>
+                    <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">{{ item.rarity || 'Common' }}</span>
                   </div>
-                  <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">ID {{ item.id }}</span>
+                  <p class="text-sm text-slate-600">{{ item.description || 'No description available.' }}</p>
                 </div>
               </li>
             </ul>
@@ -54,12 +54,13 @@
             </div>
             <ul v-else class="space-y-3">
               <li v-for="item in ownedList" :key="item.id" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div class="flex items-center justify-between gap-4">
-                  <div>
+                <div class="flex flex-col gap-2">
+                  <div class="flex items-center justify-between gap-4">
                     <p class="font-semibold text-slate-900">{{ item.name }}</p>
-                    <p class="text-sm text-slate-600">Quantity: {{ item.amount }}</p>
+                    <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">{{ item.rarity }}</span>
                   </div>
-                  <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">Price ${{ item.price }}</span>
+                  <p class="text-sm text-slate-600">Quantity: {{ item.amount }}</p>
+                  <p class="text-sm text-slate-600">{{ item.description || 'No description available.' }}</p>
                 </div>
               </li>
             </ul>
@@ -78,7 +79,7 @@
               <label class="block text-sm font-medium text-amber-900">
                 Select item to add:
                 <select
-                  v-model.number="selectedItemId"
+                  v-model="selectedItemId"
                   class="mt-2 w-full rounded-xl border border-amber-300 bg-white px-4 py-2 text-amber-900 outline-none focus:ring-2 focus:ring-amber-300"
                 >
                   <option :value="null">-- Choose an item --</option>
@@ -148,8 +149,8 @@ const testItemMessage = ref('')
 const testItemError = ref(false)
 
 const potionName = 'Health Potion'
-const potionCategory = 'Potion'
-const potionPrice = 10
+const potionDescription = 'A restorative potion that heals minor wounds.'
+const potionRarity = 'Uncommon'
 
 const initializeUser = async () => {
   const { data } = await supabase.auth.getSession()
@@ -158,8 +159,8 @@ const initializeUser = async () => {
 
 const fetchAllItems = async () => {
   const { data, error: itemsError } = await supabase
-    .from('item')
-    .select('id, name, price')
+    .from('items')
+    .select('id, name, description, rarity')
     .order('name', { ascending: true })
 
   if (itemsError) {
@@ -178,8 +179,8 @@ const fetchAllItems = async () => {
 const ensurePotionItemExists = async () => {
   try {
     const { data: existing, error: existingError } = await supabase
-      .from('item')
-      .select('id, name, price')
+      .from('items')
+      .select('id, name, description, rarity')
       .eq('name', potionName)
       .maybeSingle()
 
@@ -195,15 +196,15 @@ const ensurePotionItemExists = async () => {
     }
 
     const { data: inserted, error: insertError } = await supabase
-      .from('item')
+      .from('items')
       .insert([
         {
           name: potionName,
-          price: potionPrice,
-          category: potionCategory,
+          description: potionDescription,
+          rarity: potionRarity,
         },
       ])
-      .select('id, name, price')
+      .select('id, name, description, rarity')
       .maybeSingle()
 
     if (insertError) {
@@ -223,6 +224,12 @@ const ensurePotionItemExists = async () => {
 }
 
 const createPotionNow = async () => {
+  if (!currentUserId.value) {
+    testItemMessage.value = 'You must be logged in to create a potion.'
+    testItemError.value = true
+    return
+  }
+
   addingTestItem.value = true
   testItemMessage.value = 'Creating potion item...'
   testItemError.value = false
@@ -235,11 +242,60 @@ const createPotionNow = async () => {
     return
   }
 
-  // refresh list and preselect
-  await fetchAllItems()
-  selectedItemId.value = potion.id
-  testItemMessage.value = `Potion "${potion.name}" is ready to add.`
+  // Check if potion already exists in user's inventory
+  const { data: existing, error: existingError } = await supabase
+    .from('inventory')
+    .select('id, quantity')
+    .eq('user_id', currentUserId.value)
+    .eq('item_id', potion.id)
+    .maybeSingle()
+
+  if (existingError) {
+    console.error('Error checking existing potion:', existingError)
+    testItemMessage.value = `Error adding potion: ${existingError.message}`
+    testItemError.value = true
+    addingTestItem.value = false
+    return
+  }
+
+  if (existing) {
+    // Update quantity if potion already in inventory
+    const { error: updateError } = await supabase
+      .from('inventory')
+      .update({ quantity: existing.quantity + 1 })
+      .eq('id', existing.id)
+
+    if (updateError) {
+      console.error('Error updating potion quantity:', updateError)
+      testItemMessage.value = `Error adding potion: ${updateError.message}`
+      testItemError.value = true
+      addingTestItem.value = false
+      return
+    }
+  } else {
+    // Insert new inventory row for potion
+    const { error: insertError } = await supabase
+      .from('inventory')
+      .insert([
+        {
+          user_id: currentUserId.value,
+          item_id: potion.id,
+          quantity: 1,
+        },
+      ])
+
+    if (insertError) {
+      console.error('Error adding potion to inventory:', insertError)
+      testItemMessage.value = `Error adding potion: ${insertError.message}`
+      testItemError.value = true
+      addingTestItem.value = false
+      return
+    }
+  }
+
+  testItemMessage.value = `✓ Created and added "${potion.name}" to your inventory!`
   testItemError.value = false
+  await fetchOwnedItems()
   addingTestItem.value = false
 }
 
@@ -253,8 +309,8 @@ const fetchOwnedItems = async () => {
   error.value = ''
 
   const { data, error: fetchError } = await supabase
-    .from('inv')
-    .select('user_id, name, quantity, item(id, name, price)')
+    .from('inventory')
+    .select('quantity, item_id, items(id, name, description, rarity)')
     .eq('user_id', currentUserId.value)
     .gt('quantity', 0)
 
@@ -272,10 +328,11 @@ const fetchOwnedItems = async () => {
 const ownedList = computed(() => {
   return ownedItems.value
     .map((entry) => ({
-      id: entry.item?.id || entry.name,
-      name: entry.item?.name || entry.name || 'Unknown item',
+      id: entry.items?.id || 'unknown',
+      name: entry.items?.name || 'Unknown item',
+      description: entry.items?.description || '',
+      rarity: entry.items?.rarity || 'Common',
       amount: entry.quantity,
-      price: entry.item?.price ?? 0,
     }))
     .filter((item) => item.name !== 'Unknown item')
 })
@@ -308,14 +365,14 @@ const addTestItem = async (useFirstAvailable = false) => {
   testItemError.value = false
 
   const { data: existing, error: existingError } = await supabase
-    .from('inv')
-    .select('quantity')
+    .from('inventory')
+    .select('id, quantity')
     .eq('user_id', currentUserId.value)
-    .eq('name', selectedItemName)
+    .eq('item_id', itemId)
     .maybeSingle()
 
   if (existingError) {
-    console.error('Error checking existing user item:', existingError)
+    console.error('Error checking existing inventory row:', existingError)
     testItemMessage.value = `Error adding item: ${existingError.message}`
     testItemError.value = true
     addingTestItem.value = false
@@ -324,13 +381,12 @@ const addTestItem = async (useFirstAvailable = false) => {
 
   if (existing) {
     const { error: updateError } = await supabase
-      .from('inv')
+      .from('inventory')
       .update({ quantity: existing.quantity + 1 })
-      .eq('user_id', currentUserId.value)
-      .eq('name', selectedItemName)
+      .eq('id', existing.id)
 
     if (updateError) {
-      console.error('Error updating user item amount:', updateError)
+      console.error('Error updating inventory quantity:', updateError)
       testItemMessage.value = `Error adding item: ${updateError.message}`
       testItemError.value = true
       addingTestItem.value = false
@@ -338,17 +394,17 @@ const addTestItem = async (useFirstAvailable = false) => {
     }
   } else {
     const { error: insertError } = await supabase
-      .from('inv')
+      .from('inventory')
       .insert([
         {
           user_id: currentUserId.value,
-          name: selectedItemName,
+          item_id: itemId,
           quantity: 1,
         },
       ])
 
     if (insertError) {
-      console.error('Error inserting user item:', insertError)
+      console.error('Error inserting inventory row:', insertError)
       testItemMessage.value = `Error adding item: ${insertError.message}`
       testItemError.value = true
       addingTestItem.value = false
