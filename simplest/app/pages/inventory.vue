@@ -1,400 +1,339 @@
 <template>
-  <div class="min-h-screen bg-gradient-to-r from-pink-300 to-blue-400 p-6">
-    <div class="mx-auto max-w-6xl rounded-3xl border border-white/40 bg-white/80 backdrop-blur-lg p-8 shadow-2xl">
-      <div class="mb-8 flex flex-col gap-4">
-        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 class="text-3xl font-semibold text-slate-900">📜 Inventory</h1>
-            <p class="text-slate-600">Your user inventory is loaded from Supabase and only shows items you own.</p>
-          </div>
-          <button
-            @click="fetchOwnedItems"
-            class="rounded-full bg-sky-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-sky-700"
-          >
-            Refresh
-          </button>
-        </div>
+  <div class="min-h-screen bg-linear-to-b from-indigo-900 via-purple-900 to-slate-900 text-white p-6">
+    <div class="max-w-5xl mx-auto">
 
-        <!-- Navigation Buttons -->
-        <div class="flex flex-wrap gap-3">
-          <NuxtLink
-            to="/"
-            class="rounded-full bg-gradient-to-r from-pink-400 to-pink-500 hover:from-pink-500 hover:to-pink-600 px-6 py-2 text-sm font-semibold text-white shadow-lg hover:shadow-xl transition-all duration-300"
-          >
+      <!-- Header -->
+      <div class="flex items-center justify-between mb-8">
+        <div>
+          <h1 class="text-4xl font-black text-transparent bg-clip-text bg-linear-to-r from-yellow-300 to-pink-300">
+            🎒 Inventory
+          </h1>
+          <p class="text-purple-300 text-sm mt-1">Your eggs, food, and pets</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="text-center bg-black bg-opacity-30 px-5 py-2 rounded-xl border border-yellow-500">
+            <p class="text-xs text-yellow-300">GOLD</p>
+            <p class="text-2xl font-bold text-yellow-300">💰 {{ playerStore.goldBalance }}</p>
+          </div>
+          <NuxtLink to="/" class="px-4 py-2 rounded-lg bg-purple-700 hover:bg-purple-600 font-bold text-sm transition hover:scale-105">
             🏰 Home
           </NuxtLink>
-          <NuxtLink
-            to="/login"
-            class="rounded-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 px-6 py-2 text-sm font-semibold text-white shadow-lg hover:shadow-xl transition-all duration-300"
-          >
-            🚪 Login
-          </NuxtLink>
-          <NuxtLink
-            to="/signup"
-            class="rounded-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 px-6 py-2 text-sm font-semibold text-white shadow-lg hover:shadow-xl transition-all duration-300"
-          >
-            🐣 Sign Up
+          <NuxtLink to="/shop" class="px-4 py-2 rounded-lg bg-yellow-600 hover:bg-yellow-500 font-bold text-sm transition hover:scale-105">
+            🏪 Shop
           </NuxtLink>
         </div>
       </div>
 
-      <div v-if="!currentUserId" class="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-rose-800">
-        Please sign in to see your inventory. Then return to this page.
+      <!-- Notification -->
+      <div
+        v-if="notification"
+        class="mb-6 p-4 rounded-xl border-2 text-center font-bold"
+        :class="notificationError ? 'bg-red-900 border-red-500 text-red-200' : 'bg-green-900 border-green-500 text-green-200'"
+      >
+        {{ notification }}
+      </div>
+
+      <div v-if="loading" class="text-center py-20 text-purple-300 text-xl animate-pulse">
+        Loading your inventory...
       </div>
 
       <div v-else>
-        <div class="grid gap-6 lg:grid-cols-2">
-          <section class="rounded-3xl border border-blue-200/40 bg-gradient-to-br from-blue-50/60 to-blue-100/60 backdrop-blur-sm p-6 shadow-lg">
-            <h2 class="mb-4 text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent">🎁 All Available Items</h2>
-            <div v-if="allItems.length === 0" class="rounded-2xl border border-blue-200 bg-blue-50/80 p-6 text-center text-blue-700">
-              <p class="font-semibold">No items found</p>
-            </div>
-            <ul v-else class="space-y-3">
-              <li v-for="item in allItems" :key="item.id" class="rounded-2xl border border-white/60 bg-white/80 backdrop-blur-sm p-4 shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 hover:border-blue-300">
-                <div class="flex flex-col gap-2">
-                  <div class="flex items-center justify-between gap-4">
-                    <p class="font-bold text-slate-900">{{ item.name }}</p>
-                    <span class="rounded-full bg-gradient-to-r from-blue-500 to-blue-600 px-3 py-1 text-xs font-bold text-white shadow-md">{{ item.rarity || 'Common' }}</span>
-                  </div>
-                  <p class="text-sm text-slate-600">{{ item.description || 'No description available.' }}</p>
-                </div>
-              </li>
-            </ul>
-          </section>
-
-          <section class="rounded-3xl border border-purple-200/40 bg-gradient-to-br from-purple-50/60 to-purple-100/60 backdrop-blur-sm p-6 shadow-lg">
-            <div class="mb-4 flex items-center justify-between gap-4">
-              <div>
-                <h2 class="text-2xl font-bold bg-gradient-to-r from-purple-600 to-purple-700 bg-clip-text text-transparent">👜 Your Inventory</h2>
-                <p class="text-sm text-slate-600">Only items you own are shown here.</p>
-              </div>
-              <span class="rounded-full bg-gradient-to-r from-purple-500 to-purple-600 px-4 py-2 text-sm font-bold text-white shadow-lg">{{ ownedList.length }} owned</span>
-            </div>
-
-            <div v-if="loading" class="rounded-2xl border border-purple-200 bg-purple-50/80 p-6 text-center text-purple-700 font-semibold">Loading your inventory...</div>
-            <div v-else-if="error" class="rounded-2xl border border-red-200 bg-red-50/80 p-4 text-red-800 whitespace-pre-wrap text-sm font-semibold">{{ error }}</div>
-            <div v-else-if="ownedList.length === 0" class="rounded-2xl border border-purple-200 bg-purple-50/80 p-6 text-center text-purple-700">
-              <p class="font-semibold">No owned items yet</p>
-            </div>
-            <ul v-else class="space-y-3">
-              <li v-for="item in ownedList" :key="item.id" class="rounded-2xl border border-white/60 bg-gradient-to-r from-white/80 to-purple-50/60 backdrop-blur-sm p-4 shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 hover:border-purple-300">
-                <div class="flex flex-col gap-2">
-                  <div class="flex items-center justify-between gap-4">
-                    <p class="font-bold text-slate-900">{{ item.name }}</p>
-                    <span class="rounded-full bg-gradient-to-r from-purple-500 to-purple-600 px-3 py-1 text-xs font-bold text-white shadow-md">{{ item.rarity }}</span>
-                  </div>
-                  <div class="flex justify-between items-center">
-                    <p class="text-sm text-slate-600">{{ item.description || 'No description available.' }}</p>
-                    <span class="bg-gradient-to-r from-purple-400 to-purple-500 text-white font-bold px-4 py-1 rounded-full text-sm shadow-md">{{ item.amount }}</span>
-                  </div>
-                </div>
-              </li>
-            </ul>
-          </section>
-        </div>
-
-        <section class="mt-8 rounded-3xl border border-amber-200 bg-amber-50 p-6">
-          <h2 class="mb-4 text-lg font-semibold text-amber-900">🔧 Dev Testing (Temporary)</h2>
-          <div class="mb-4 rounded bg-amber-100 p-3 text-sm text-amber-900">
-            <p><strong>User logged in:</strong> {{ currentUserId ? 'YES' : 'NO' }}</p>
-            <p><strong>User ID:</strong> {{ currentUserId || 'NONE' }}</p>
-            <p><strong>Selected item:</strong> {{ selectedItemLabel || 'NONE' }}</p>
+        <!-- Eggs Section -->
+        <div class="mb-10">
+          <h2 class="text-2xl font-bold mb-4">🥚 Your Eggs</h2>
+          <div v-if="ownedEggs.length === 0" class="rounded-2xl border border-dashed border-purple-600 p-8 text-center text-purple-400">
+            No eggs yet! Head to the <NuxtLink to="/shop" class="text-yellow-300 underline">Shop</NuxtLink> to buy some.
           </div>
-            <div class="flex flex-col gap-4 sm:flex-row sm:items-end">
-            <div class="flex-1">
-              <label class="block text-sm font-medium text-amber-900">
-                Select item to add:
-                <select
-                  v-model="selectedItemId"
-                  class="mt-2 w-full rounded-xl border border-amber-300 bg-white px-4 py-2 text-amber-900 outline-none focus:ring-2 focus:ring-amber-300"
-                >
-                  <option :value="null">-- Choose an item --</option>
-                  <option v-for="item in allItems" :key="item.id" :value="item.id">
-                    {{ item.name }}
-                  </option>
-                </select>
-              </label>
-            </div>
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div v-else class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div
+              v-for="egg in ownedEggs"
+              :key="egg.shop_item_id"
+              class="rounded-2xl border-2 p-5 text-center flex flex-col items-center gap-2"
+              :class="rarityCardClass(egg.rarity)"
+            >
+              <p class="text-5xl">{{ rarityEmoji(egg.rarity) }}</p>
+              <p class="font-bold">{{ egg.name }}</p>
+              <p class="text-xs" :class="rarityTextClass(egg.rarity)">{{ capitalize(egg.rarity) }}</p>
+              <span class="bg-black bg-opacity-40 text-white text-xs px-3 py-1 rounded-full font-bold">
+                x{{ egg.eggs_count }}
+              </span>
               <button
-                @click="addTestItem(false)"
-                :disabled="!selectedItemId || addingTestItem"
-                class="rounded-xl bg-amber-600 px-6 py-2 text-sm font-semibold text-white transition disabled:opacity-50 hover:enabled:bg-amber-700"
+                @click="openEgg(egg)"
+                :disabled="opening === egg.shop_item_id"
+                class="w-full mt-1 py-2 rounded-lg font-bold text-sm bg-yellow-500 hover:bg-yellow-400 text-black transition disabled:opacity-50"
               >
-                {{ addingTestItem ? 'Adding...' : 'Add Item' }}
+                {{ opening === egg.shop_item_id ? 'Hatching...' : '🐣 Open' }}
               </button>
             </div>
           </div>
-          <p v-if="testItemMessage" class="mt-3 text-sm" :class="testItemError ? 'text-amber-800' : 'text-emerald-800'">
-            {{ testItemMessage }}
-          </p>
-        </section>
+        </div>
 
-        <section class="mt-8 rounded-3xl border border-slate-300 bg-slate-100 p-6">
-          <h3 class="mb-3 text-sm font-semibold text-slate-700">📊 Debug Info</h3>
-          <div class="space-y-2 text-xs text-slate-700">
-            <p><strong>Raw ownedItems count:</strong> {{ ownedItems.length }}</p>
-            <p><strong>Owned list count:</strong> {{ ownedList.length }}</p>
-            <details class="cursor-pointer">
-              <summary class="font-mono text-slate-600 hover:text-slate-900">View raw data (click to expand)</summary>
-              <pre class="mt-2 overflow-auto rounded bg-white p-2 text-xs">{{ JSON.stringify(ownedItems, null, 2) }}</pre>
-            </details>
+        <!-- Food Section -->
+        <div class="mb-10">
+          <h2 class="text-2xl font-bold mb-4">🍖 Your Food</h2>
+          <div v-if="ownedFood.length === 0" class="rounded-2xl border border-dashed border-purple-600 p-8 text-center text-purple-400">
+            No food yet! Head to the <NuxtLink to="/shop" class="text-yellow-300 underline">Shop</NuxtLink> to buy some.
           </div>
-        </section>
+          <div v-else class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            <div
+              v-for="food in ownedFood"
+              :key="food.shop_item_id"
+              class="rounded-2xl border-2 border-blue-500 bg-linear-to-br from-blue-900 to-slate-900 p-5 text-center flex flex-col items-center gap-2"
+            >
+              <p class="text-5xl">{{ foodEmoji(food.food_kind) }}</p>
+              <p class="font-bold">{{ food.name }}</p>
+              <p class="text-xs text-blue-300">{{ foodDescription(food.food_kind) }}</p>
+              <span class="bg-black bg-opacity-40 text-white text-xs px-3 py-1 rounded-full font-bold">
+                x{{ food.food_count }}
+              </span>
+              <button
+                @click="useFood(food)"
+                :disabled="!playerStore.activePet || usingFood === food.shop_item_id"
+                class="w-full mt-1 py-2 rounded-lg font-bold text-sm transition"
+                :class="playerStore.activePet
+                  ? 'bg-green-600 hover:bg-green-500 text-white'
+                  : 'bg-gray-700 text-gray-400 cursor-not-allowed'"
+              >
+                {{ usingFood === food.shop_item_id ? 'Feeding...' : '🍽️ Feed Active Pet' }}
+              </button>
+            </div>
+          </div>
+          <p v-if="!playerStore.activePet" class="mt-2 text-xs text-purple-400">
+            Set an active pet on the Home page to use food.
+          </p>
+        </div>
+
+        <!-- Pets Section -->
+        <div>
+          <h2 class="text-2xl font-bold mb-4">🐾 Your Pets ({{ playerStore.pets.length }})</h2>
+          <div v-if="playerStore.pets.length === 0" class="rounded-2xl border border-dashed border-purple-600 p-8 text-center text-purple-400">
+            No pets yet! Open an egg to hatch one.
+          </div>
+          <div v-else class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+            <div
+              v-for="pet in playerStore.pets"
+              :key="pet.id"
+              @click="playerStore.setActivePet(pet.id)"
+              class="rounded-2xl border-2 p-4 text-center cursor-pointer transition hover:scale-105"
+              :class="playerStore.activePet?.id === pet.id
+                ? 'border-cyan-400 bg-linear-to-br from-cyan-900 to-blue-900'
+                : 'border-slate-600 bg-linear-to-br from-slate-800 to-slate-900 hover:border-cyan-600'"
+            >
+              <p class="text-5xl mb-2">{{ pet.species?.emoji ?? '🐣' }}</p>
+              <p class="font-bold text-sm">{{ pet.nickname || pet.species?.name || 'Unknown' }}</p>
+              <p class="text-xs text-slate-300 mt-1">Lvl {{ pet.level }}</p>
+              <p class="text-xs mt-1" :class="rarityTextClass(pet.species?.rarity ?? '')">
+                {{ capitalize(pet.species?.rarity ?? '') }}
+              </p>
+              <div class="mt-2 space-y-1">
+                <div class="flex items-center gap-1 text-xs">
+                  <span>❤️</span>
+                  <div class="flex-1 bg-gray-700 rounded-full h-1.5">
+                    <div class="bg-red-500 h-1.5 rounded-full" :style="{ width: (pet.current_hp / pet.max_hp * 100) + '%' }"></div>
+                  </div>
+                </div>
+                <div class="flex items-center gap-1 text-xs">
+                  <span>🍗</span>
+                  <div class="flex-1 bg-gray-700 rounded-full h-1.5">
+                    <div class="bg-green-500 h-1.5 rounded-full" :style="{ width: (100 - pet.hunger) + '%' }"></div>
+                  </div>
+                </div>
+              </div>
+              <p v-if="playerStore.activePet?.id === pet.id" class="text-xs text-cyan-300 font-bold mt-2">⭐ Active</p>
+            </div>
+          </div>
+        </div>
       </div>
+
+      <!-- Hatch Result Modal -->
+      <div v-if="hatchResult" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4">
+        <div class="rounded-3xl border-2 border-yellow-400 bg-linear-to-br from-yellow-900 to-orange-900 p-10 max-w-sm w-full text-center">
+          <p class="text-8xl mb-4 animate-bounce">{{ hatchResult.emoji }}</p>
+          <h2 class="text-3xl font-black mb-1">{{ hatchResult.name }}</h2>
+          <p class="text-lg font-bold mb-2" :class="rarityTextClass(hatchResult.rarity)">
+            {{ capitalize(hatchResult.rarity) }}
+          </p>
+          <p class="text-yellow-200 text-sm mb-6">A new pet has joined your collection!</p>
+          <button @click="hatchResult = null" class="w-full py-3 rounded-lg bg-yellow-500 hover:bg-yellow-400 text-black font-black text-lg transition">
+            🎉 Awesome!
+          </button>
+        </div>
+      </div>
+
     </div>
   </div>
 </template>
 
-<script setup>
-import { computed, onMounted, ref } from 'vue'
+<script setup lang="ts">
+import { ref, onMounted } from 'vue'
+import { usePlayerStore } from '../store/player'
+
+definePageMeta({ auth: true })
 
 const supabase = useSupabaseClient()
+const playerStore = usePlayerStore()
+
 const loading = ref(false)
-const error = ref('')
-const currentUserId = ref(null)
-const allItems = ref([])
-const ownedItems = ref([])
-const selectedItemId = ref(null)
-const addingTestItem = ref(false)
-const testItemMessage = ref('')
-const testItemError = ref(false)
+const opening = ref<string | null>(null)
+const usingFood = ref<string | null>(null)
+const notification = ref('')
+const notificationError = ref(false)
+const hatchResult = ref<any>(null)
 
-const potionName = 'Health Potion'
-const potionDescription = 'A restorative potion that heals minor wounds.'
-const potionRarity = 'Uncommon'
+const ownedEggs = ref<any[]>([])
+const ownedFood = ref<any[]>([])
 
-const initializeUser = async () => {
-  const { data } = await supabase.auth.getSession()
-  currentUserId.value = data?.session?.user?.id || null
+const showNotification = (msg: string, isError = false) => {
+  notification.value = msg
+  notificationError.value = isError
+  setTimeout(() => (notification.value = ''), 3000)
 }
 
-const fetchAllItems = async () => {
-  const { data, error: itemsError } = await supabase
-    .from('items')
-    .select('id, name, description, rarity')
-    .order('name', { ascending: true })
-
-  if (itemsError) {
-    console.error('Failed to load items:', itemsError)
-    error.value = `Unable to load available items:\n${itemsError.message}`
-    allItems.value = []
-    return
-  }
-
-  allItems.value = data || []
-  if (!selectedItemId.value && allItems.value.length > 0) {
-    selectedItemId.value = allItems.value[0].id
-  }
-}
-
-const createPotionNow = async () => {
-  if (!currentUserId.value) {
-    testItemMessage.value = 'You must be logged in to create a potion.'
-    testItemError.value = true
-    return
-  }
-
-  addingTestItem.value = true
-  testItemMessage.value = 'Creating potion item...'
-  testItemError.value = false
-
-  const potion = await ensurePotionItemExists()
-  if (!potion) {
-    testItemMessage.value = 'Failed to create potion.'
-    testItemError.value = true
-    addingTestItem.value = false
-    return
-  }
-
-  // Check if potion already exists in user's inventory
-  const { data: existing, error: existingError } = await supabase
-    .from('inventory')
-    .select('id, quantity')
-    .eq('user_id', currentUserId.value)
-    .eq('item_id', potion.id)
-    .maybeSingle()
-
-  if (existingError) {
-    console.error('Error checking existing potion:', existingError)
-    testItemMessage.value = `Error adding potion: ${existingError.message}`
-    testItemError.value = true
-    addingTestItem.value = false
-    return
-  }
-
-  if (existing) {
-    // Update quantity if potion already in inventory
-    const { error: updateError } = await supabase
-      .from('inventory')
-      .update({ quantity: existing.quantity + 1 })
-      .eq('id', existing.id)
-
-    if (updateError) {
-      console.error('Error updating potion quantity:', updateError)
-      testItemMessage.value = `Error adding potion: ${updateError.message}`
-      testItemError.value = true
-      addingTestItem.value = false
-      return
-    }
-  } else {
-    // Insert new inventory row for potion
-    const { error: insertError } = await supabase
-      .from('inventory')
-      .insert([
-        {
-          user_id: currentUserId.value,
-          item_id: potion.id,
-          quantity: 1,
-        },
-      ])
-
-    if (insertError) {
-      console.error('Error adding potion to inventory:', insertError)
-      testItemMessage.value = `Error adding potion: ${insertError.message}`
-      testItemError.value = true
-      addingTestItem.value = false
-      return
-    }
-  }
-
-  testItemMessage.value = `✓ Created and added "${potion.name}" to your inventory!`
-  testItemError.value = false
-  await fetchOwnedItems()
-  addingTestItem.value = false
-}
-
-const fetchOwnedItems = async () => {
-  if (!currentUserId.value) {
-    ownedItems.value = []
-    return
-  }
-
+const fetchInventory = async () => {
+  if (!playerStore.profile) return
   loading.value = true
-  error.value = ''
 
-  const { data, error: fetchError } = await supabase
-    .from('inventory')
-    .select('quantity, item_id, items(id, name, description, rarity)')
-    .eq('user_id', currentUserId.value)
-    .gt('quantity', 0)
+  const { data, error } = await supabase
+    .from('user_shop_inventory')
+    .select('*, shop_items(id, item_kind, name, rarity, food_kind, gold_price)')
+    .eq('user_id', playerStore.profile.id)
 
-  if (fetchError) {
-    console.error('Failed to load owned items:', fetchError)
-    error.value = `Error loading inventory:\n${fetchError.message}`
-    ownedItems.value = []
-  } else {
-    ownedItems.value = data || []
-  }
+  if (error) { showNotification('Failed to load inventory', true); loading.value = false; return }
+
+  const rows = data || []
+  ownedEggs.value = rows
+    .filter(r => r.shop_items?.item_kind === 'egg' && r.eggs_count > 0)
+    .map(r => ({ ...r.shop_items, shop_item_id: r.shop_item_id, eggs_count: r.eggs_count }))
+
+  ownedFood.value = rows
+    .filter(r => r.shop_items?.item_kind === 'food' && r.food_count > 0)
+    .map(r => ({ ...r.shop_items, shop_item_id: r.shop_item_id, food_count: r.food_count }))
 
   loading.value = false
 }
 
-const ownedList = computed(() => {
-  return ownedItems.value
-    .map((entry) => ({
-      id: entry.items?.id || 'unknown',
-      name: entry.items?.name || 'Unknown item',
-      description: entry.items?.description || '',
-      rarity: entry.items?.rarity || 'Common',
-      amount: entry.quantity,
-    }))
-    .filter((item) => item.name !== 'Unknown item')
-})
+const openEgg = async (egg: any) => {
+  if (!playerStore.profile) return
+  opening.value = egg.shop_item_id
 
-const selectedItemLabel = computed(() => {
-  const selected = allItems.value.find((item) => item.id === selectedItemId.value)
-  return selected ? selected.name : null
-})
+  try {
+    // Get drop rates for this egg rarity
+    const { data: rates } = await supabase
+      .from('egg_drop_rates')
+      .select('pet_rarity, drop_chance')
+      .eq('egg_rarity', egg.rarity)
 
-const addTestItem = async (useFirstAvailable = false) => {
-  let itemId = selectedItemId.value
-  if (!itemId && useFirstAvailable) {
-    itemId = allItems.value[0]?.id || null
-  }
-
-  if (!currentUserId.value || !itemId) {
-    alert(`Cannot add item. User ID: ${currentUserId.value || 'MISSING'}, Item: ${itemId || 'NOT SELECTED'}`)
-    return
-  }
-
-  const selectedItem = allItems.value.find((item) => item.id === itemId)
-  const selectedItemName = selectedItem?.name
-  if (!selectedItemName) {
-    alert('Selected item not found in the item table.')
-    return
-  }
-
-  addingTestItem.value = true
-  testItemMessage.value = 'Adding test item...'
-  testItemError.value = false
-
-  const { data: existing, error: existingError } = await supabase
-    .from('inventory')
-    .select('id, quantity')
-    .eq('user_id', currentUserId.value)
-    .eq('item_id', itemId)
-    .maybeSingle()
-
-  if (existingError) {
-    console.error('Error checking existing inventory row:', existingError)
-    testItemMessage.value = `Error adding item: ${existingError.message}`
-    testItemError.value = true
-    addingTestItem.value = false
-    return
-  }
-
-  if (existing) {
-    const { error: updateError } = await supabase
-      .from('inventory')
-      .update({ quantity: existing.quantity + 1 })
-      .eq('id', existing.id)
-
-    if (updateError) {
-      console.error('Error updating inventory quantity:', updateError)
-      testItemMessage.value = `Error adding item: ${updateError.message}`
-      testItemError.value = true
-      addingTestItem.value = false
-      return
+    // Roll for pet rarity
+    const roll = Math.random() * 100
+    let cumulative = 0
+    let selectedRarity = 'common'
+    for (const rate of (rates || [])) {
+      cumulative += Number(rate.drop_chance)
+      if (roll <= cumulative) { selectedRarity = rate.pet_rarity; break }
     }
-  } else {
-    const { error: insertError } = await supabase
-      .from('inventory')
-      .insert([
-        {
-          user_id: currentUserId.value,
-          item_id: itemId,
-          quantity: 1,
-        },
-      ])
 
-    if (insertError) {
-      console.error('Error inserting inventory row:', insertError)
-      testItemMessage.value = `Error adding item: ${insertError.message}`
-      testItemError.value = true
-      addingTestItem.value = false
-      return
-    }
+    // Pick a random pet of that rarity
+    const { data: species } = await supabase
+      .from('pet_species')
+      .select('*')
+      .eq('rarity', selectedRarity)
+
+    if (!species || species.length === 0) throw new Error('No pets found for this rarity')
+    const picked = species[Math.floor(Math.random() * species.length)]
+
+    // Add pet to user_pets
+    const { data: { user } } = await supabase.auth.getUser()
+    await supabase.from('user_pets').insert({
+      user_id: user!.id,
+      pet_species_id: picked.id,
+      level: 1,
+      experience: 0,
+      current_hp: picked.base_hp,
+      max_hp: picked.base_hp,
+      hunger: 50,
+      happiness: 70,
+      affection: 0,
+    })
+
+    // Decrement egg count
+    await supabase
+      .from('user_shop_inventory')
+      .update({ eggs_count: egg.eggs_count - 1 })
+      .eq('user_id', playerStore.profile.id)
+      .eq('shop_item_id', egg.shop_item_id)
+
+    // Refresh
+    await playerStore.fetchUserPets(playerStore.profile.id)
+    await fetchInventory()
+
+    hatchResult.value = { name: picked.name, emoji: picked.emoji, rarity: picked.rarity }
+  } catch (err: any) {
+    showNotification(`❌ ${err.message}`, true)
+  } finally {
+    opening.value = null
   }
-
-  testItemMessage.value = `✓ Added ${selectedItemName || 'item'} to inventory!`
-  testItemError.value = false
-  selectedItemId.value = null
-  await fetchOwnedItems()
-  addingTestItem.value = false
 }
 
-onMounted(async () => {
-  await initializeUser()
-  await fetchAllItems()
-  const potion = await ensurePotionItemExists()
-  if (potion) {
-    await fetchAllItems()
-    selectedItemId.value = potion.id
+const useFood = async (food: any) => {
+  if (!playerStore.activePet || !playerStore.profile) return
+  usingFood.value = food.shop_item_id
+
+  try {
+    const hungerReduction = { basic: 20, premium: 50, special: 100 }[food.food_kind as string] ?? 20
+    const happinessBoost  = { basic: 5,  premium: 15, special: 30  }[food.food_kind as string] ?? 5
+
+    const newHunger    = Math.max(0, playerStore.activePet.hunger - hungerReduction)
+    const newHappiness = Math.min(100, playerStore.activePet.happiness + happinessBoost)
+
+    await supabase.from('user_pets').update({ hunger: newHunger, happiness: newHappiness })
+      .eq('id', playerStore.activePet.id)
+
+    playerStore.activePet.hunger    = newHunger
+    playerStore.activePet.happiness = newHappiness
+
+    // Decrement food count
+    await supabase
+      .from('user_shop_inventory')
+      .update({ food_count: food.food_count - 1 })
+      .eq('user_id', playerStore.profile.id)
+      .eq('shop_item_id', food.shop_item_id)
+
+    await fetchInventory()
+    showNotification(`🍽️ ${playerStore.activePet.species?.name ?? 'Your pet'} enjoyed the ${food.name}!`)
+  } catch (err: any) {
+    showNotification(`❌ ${err.message}`, true)
+  } finally {
+    usingFood.value = null
   }
-  await fetchOwnedItems()
+}
+
+// Helpers
+const rarityCardClass = (rarity: string) => ({
+  common:    'border-gray-400 bg-linear-to-br from-gray-800 to-slate-900',
+  rare:      'border-blue-400 bg-linear-to-br from-blue-900 to-slate-900',
+  epic:      'border-purple-400 bg-linear-to-br from-purple-900 to-slate-900',
+  legendary: 'border-yellow-400 bg-linear-to-br from-yellow-900 to-orange-900',
+}[rarity] ?? 'border-gray-500 bg-slate-900')
+
+const rarityTextClass = (rarity: string) => ({
+  common:    'text-gray-300',
+  rare:      'text-blue-300',
+  epic:      'text-purple-300',
+  legendary: 'text-yellow-300',
+}[rarity] ?? 'text-white')
+
+const rarityEmoji = (r: string) => ({ common: '🥚', rare: '💎', epic: '🔮', legendary: '⭐' }[r] ?? '🥚')
+const foodEmoji = (k: string) => ({ basic: '🍓', premium: '🍖', special: '🐲' }[k] ?? '🍖')
+const foodDescription = (k: string) => ({
+  basic:   '-20 hunger, +5 happiness',
+  premium: '-50 hunger, +15 happiness',
+  special: '-100 hunger, +30 happiness',
+}[k] ?? '')
+const capitalize = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : ''
+
+onMounted(async () => {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (user && !playerStore.isInitialized) await playerStore.fetchPlayerProfile(user.id)
+  await fetchInventory()
 })
 </script>
-
-<style scoped>
-</style>
