@@ -108,16 +108,21 @@ async fetchUserPets(userId: string) {
 
     if (error) throw error
 
-    const pets = (data ?? []) as any[]
-    this.pets = pets
+    const rows = (data ?? []) as any[]
+
+    // Normalize: map joined pet_species(*) -> pet.species
+    this.pets = rows.map((p) => ({
+      ...p,
+      species: p.pet_species ?? null,
+    }))
 
     const activeId = this.profile?.active_pet_id
 
     if (activeId) {
-      this.activePet = (pets.find(p => p.id === activeId) ?? null) as any
-    } else if (pets.length > 0) {
-      this.activePet = pets[0] as any
-      await this.setActivePet(pets[0].id)
+      this.activePet = (this.pets.find((p) => p.id === activeId) ?? null) as any
+    } else if (this.pets.length > 0) {
+      this.activePet = this.pets[0] as any
+      await this.setActivePet(this.pets[0].id)
     } else {
       this.activePet = null
     }
