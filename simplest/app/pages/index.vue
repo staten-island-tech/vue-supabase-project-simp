@@ -391,25 +391,35 @@ const selectActivePet = async (petId: string) => {
 }
 
 const summonPet = async (count: number) => {
+  console.log('UI summon clicked:', { count })
+
   try {
-    const costInGold = count * 10 * (count === 10 ? 0.9 : 1) // 10% discount for 10x
+    const costInGold = count * 10 * (count === 10 ? 0.9 : 1)
+
+    console.log('UI cost/check:', {
+      costInGold,
+      goldBalance: playerStore.goldBalance,
+      profileId: playerStore.profile?.id,
+    })
 
     if (playerStore.goldBalance < costInGold) {
       notification.value = '❌ Not enough gold!'
-      setTimeout(() => notification.value = '', 2000)
+      setTimeout(() => (notification.value = ''), 2000)
       return
     }
 
     for (let i = 0; i < count; i++) {
+      console.log('UI summoning iteration:', i + 1)
       await playerStore.summonPet()
     }
 
     notification.value = `🎉 You summoned ${count} pet(s)!`
-    setTimeout(() => notification.value = '', 2000)
+    setTimeout(() => (notification.value = ''), 2000)
     showSummonModal.value = false
-  } catch (err) {
-    notification.value = '❌ Summon failed'
-    setTimeout(() => notification.value = '', 2000)
+  } catch (err: any) {
+    console.error('UI Summon failed error object:', err)
+    notification.value = `❌ Summon failed: ${err?.message ?? 'unknown error'}`
+    setTimeout(() => (notification.value = ''), 4000)
   }
 }
 

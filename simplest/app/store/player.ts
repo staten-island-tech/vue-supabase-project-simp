@@ -337,7 +337,9 @@ async fetchUserPets(userId: string) {
       .single()
 
     if (speciesError) throw speciesError
-    if (!petSpecies) return null
+    if (!petSpecies) {
+  throw new Error(`No pet_species found for rarity="${rarity}"`)
+}
 
     const costInGold =
       rarity === 'legendary' ? 1000 :
@@ -352,37 +354,56 @@ async fetchUserPets(userId: string) {
 
     await this.addGold(-costInGold)
 
-    const { error: petError } = await supabase
-      .from('user_pets')
-      .insert({
-        user_id: this.profile.id,
-        pet_species_id: petSpecies.id,
-        level: 1,
-        experience: 0,
-        current_hp: petSpecies.base_hp,
-        max_hp: petSpecies.base_hp,
-        hunger: 50,
-        happiness: 70,
-        affection: 0,
-      })
+    const { data: sessionData, error: sessionErr } = await supabase.auth.getSession()
+if (sessionErr) throw sessionErr
+if (!sessionData?.session?.user?.id) throw new Error('Not authenticated')
 
-    if (petError) throw petError
+const authUserId = sessionData.session.user.id
 
-    await this.fetchUserPets(this.profile.id)
+const { data: profileData, error: profileSelErr } = await supabase
+  .from('profiles')
+  .select('id')
+  .eq('id', authUserId)
+  .single()
 
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .update({ total_pets_owned: this.pets.length })
-      .eq('id', this.profile.id)
+if (profileSelErr) throw profileSelErr
+if (!profileData?.id) throw new Error('Profile not found')
 
-    if (profileError) throw profileError
+console.log('authUserId:', authUserId)
+console.log('store profile.id:', this.profile?.id)
+console.log('profile row id:', profileData?.id)
 
-    return petSpecies
-  } catch (err: any) {
-    this.error = err.message
-    throw err
-  }
+// Optional hard-stop to ensure you’re not using a stale/incorrect this.profile.id
+if (this.profile?.id && this.profile.id !== authUserId) {
+  throw new Error('Stale profile in store; reload profile and try again.')
+}
+
+const { error: petError } = await supabase.from('user_pets').insert({
+  user_id: authUserId,
+  pet_species_id: petSpecies.id,
+  level: 1,
+  experience: 0,
+  current_hp: petSpecies.base_hp,
+  max_hp: petSpecies.base_hp,
+  hunger: 50,
+  happiness: 70,
+  affection: 0,
+})
+
+if (petError) throw petError
+
+await this.fetchUserPets(authUserId)
+
+const { error: profileError } = await supabase
+  .from('profiles')
+  .update({ total_pets_owned: this.pets.length })
+  .eq('id', authUserId)
+
+if (profileError) throw profileError
+
+return petSpecies
 },
+    }
 
     async completeDailyChallenge(challengeId: string) {
       const supabase = useSupabaseClient()
