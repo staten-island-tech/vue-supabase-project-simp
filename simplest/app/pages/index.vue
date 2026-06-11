@@ -50,6 +50,15 @@
       <div class="max-w-7xl mx-auto px-6 py-8">
         <!-- Quick actions row -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <NuxtLink
+          to="/inventory"
+          class="group relative rounded-2xl bg-gradient-to-br from-amber-50 to-amber-100 px-6 py-4 text-center text-amber-900 font-bold text-lg shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 active:scale-95 border border-amber-200 hover:border-amber-300 opacity-75 overflow-hidden"
+        >
+          <div class="absolute inset-0 bg-gradient-to-r from-amber-100 to-amber-200 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+          <span class="relative z-10 flex items-center justify-center gap-2">
+            Inventory
+          </span>
+        </NuxtLink>
           <button
             @click="showSummonModal = true"
             class="rounded-2xl border-2 border-yellow-500 bg-linear-to-br from-yellow-900 to-orange-900 p-6 hover:border-yellow-300 hover:shadow-lg hover:scale-105 transition cursor-pointer"
