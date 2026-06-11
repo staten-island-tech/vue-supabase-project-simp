@@ -52,9 +52,9 @@
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           <NuxtLink
           to="/inventory"
-          class="group relative rounded-2xl bg-gradient-to-br from-amber-50 to-amber-100 px-6 py-4 text-center text-amber-900 font-bold text-lg shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 active:scale-95 border border-amber-200 hover:border-amber-300 opacity-75 overflow-hidden"
+          class="group relative rounded-2xl bg-linear-to-br from-amber-50 to-amber-100 px-6 py-4 text-center text-amber-900 font-bold text-lg shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 active:scale-95 border border-amber-200 hover:border-amber-300 opacity-75 overflow-hidden"
         >
-          <div class="absolute inset-0 bg-gradient-to-r from-amber-100 to-amber-200 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+          <div class="absolute inset-0 bg-linear-to-r from-amber-100 to-amber-200 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
           <span class="relative z-10 flex items-center justify-center gap-2">
             Inventory
           </span>
