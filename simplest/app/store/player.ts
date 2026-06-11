@@ -319,6 +319,13 @@ async fetchUserPets(userId: string) {
   const supabase = useSupabaseClient()
 
   try {
+    // Must have an authenticated session; RLS uses auth.uid()
+    const { data: sessionData, error: sessionErr } = await supabase.auth.getSession()
+    if (sessionErr) throw sessionErr
+    const authUserId = sessionData?.session?.user?.id
+    if (!authUserId) throw new Error('Not authenticated')
+
+    // Keep your existing guard, but don't trust it for user_id
     if (!this.profile) return null
 
     const roll = Math.random()
@@ -337,73 +344,62 @@ async fetchUserPets(userId: string) {
       .single()
 
     if (speciesError) throw speciesError
-    if (!petSpecies) {
-  throw new Error(`No pet_species found for rarity="${rarity}"`)
-}
+    if (!petSpecies) return null
 
     const costInGold =
       rarity === 'legendary' ? 1000 :
       rarity === 'epic' ? 500 :
       100
 
-    // Ensure you have enough gold
+    // Ensure you have enough gold (use authUserId profile row)
     const currentGold = Number(this.profile.coins ?? 0)
-    if (currentGold < costInGold) {
-      throw new Error('Not enough gold to summon')
+    if (currentGold < costInGold) throw new Error('Not enough gold to summon')
+
+    // IMPORTANT: deduct coins for the authenticated user id
+    // (so this method is consistent even if store profile is stale)
+    {
+      const { error: goldErr } = await supabase
+        .from('profiles')
+        .update({ coins: currentGold - costInGold })
+        .eq('id', authUserId)
+
+      if (goldErr) throw goldErr
+
+      this.profile.coins = currentGold - costInGold
     }
 
-    await this.addGold(-costInGold)
+    // ✅ RLS-safe insert: user_id must equal auth.uid()
+    const { error: petError } = await supabase
+      .from('user_pets')
+      .insert({
+        user_id: authUserId,
+        pet_species_id: petSpecies.id,
+        level: 1,
+        experience: 0,
+        current_hp: petSpecies.base_hp,
+        max_hp: petSpecies.base_hp,
+        hunger: 50,
+        happiness: 70,
+        affection: 0,
+      })
 
-    const { data: sessionData, error: sessionErr } = await supabase.auth.getSession()
-if (sessionErr) throw sessionErr
-if (!sessionData?.session?.user?.id) throw new Error('Not authenticated')
+    if (petError) throw petError
 
-const authUserId = sessionData.session.user.id
+    await this.fetchUserPets(authUserId)
 
-const { data: profileData, error: profileSelErr } = await supabase
-  .from('profiles')
-  .select('id')
-  .eq('id', authUserId)
-  .single()
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({ total_pets_owned: this.pets.length })
+      .eq('id', authUserId)
 
-if (profileSelErr) throw profileSelErr
-if (!profileData?.id) throw new Error('Profile not found')
+    if (profileError) throw profileError
 
-console.log('authUserId:', authUserId)
-console.log('store profile.id:', this.profile?.id)
-console.log('profile row id:', profileData?.id)
-
-// Optional hard-stop to ensure you’re not using a stale/incorrect this.profile.id
-if (this.profile?.id && this.profile.id !== authUserId) {
-  throw new Error('Stale profile in store; reload profile and try again.')
-}
-
-const { error: petError } = await supabase.from('user_pets').insert({
-  user_id: authUserId,
-  pet_species_id: petSpecies.id,
-  level: 1,
-  experience: 0,
-  current_hp: petSpecies.base_hp,
-  max_hp: petSpecies.base_hp,
-  hunger: 50,
-  happiness: 70,
-  affection: 0,
-})
-
-if (petError) throw petError
-
-await this.fetchUserPets(authUserId)
-
-const { error: profileError } = await supabase
-  .from('profiles')
-  .update({ total_pets_owned: this.pets.length })
-  .eq('id', authUserId)
-
-if (profileError) throw profileError
-
-return petSpecies
+    return petSpecies
+  } catch (err: any) {
+    this.error = err.message
+    throw err
+  }
 },
-    }
 
     async completeDailyChallenge(challengeId: string) {
       const supabase = useSupabaseClient()
