@@ -51,23 +51,23 @@
         <!-- Quick actions row -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           <NuxtLink
-          to="/inventory"
-          class="group relative rounded-2xl bg-linear-to-br from-amber-50 to-amber-100 px-6 py-4 text-center text-amber-900 font-bold text-lg shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 active:scale-95 border border-amber-200 hover:border-amber-300 opacity-75 overflow-hidden"
-        >
-          <div class="absolute inset-0 bg-linear-to-r from-amber-100 to-amber-200 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-          <span class="relative z-10 flex items-center justify-center gap-2">
-            Inventory
-          </span>
-        </NuxtLink>
-          <button
-            @click="showSummonModal = true"
+            to="/inventory"
+            class="rounded-2xl border-2 border-amber-500 bg-linear-to-br from-amber-900 to-yellow-900 p-6 hover:border-amber-300 hover:shadow-lg hover:scale-105 transition cursor-pointer"
+          >
+            <p class="text-4xl mb-2">🎒</p>
+            <h3 class="font-bold text-lg">Inventory</h3>
+            <p class="text-xs text-amber-200 mt-1">Open eggs and use food</p>
+            <p class="text-xs text-amber-200 mt-2">{{ petCollection.length }}/50 Pets Owned</p>
+          </NuxtLink>
+          <NuxtLink
+            to="/shop"
             class="rounded-2xl border-2 border-yellow-500 bg-linear-to-br from-yellow-900 to-orange-900 p-6 hover:border-yellow-300 hover:shadow-lg hover:scale-105 transition cursor-pointer"
           >
             <p class="text-4xl mb-2">🎰</p>
-            <h3 class="font-bold text-lg">Summon Pets</h3>
-            <p class="text-xs text-yellow-200 mt-1">Cost: 10 💰</p>
-            <p class="text-xs text-yellow-200 mt-2">{{ petCollection.length }}/50 Owned</p>
-          </button>
+            <h3 class="font-bold text-lg">Buy Eggs</h3>
+            <p class="text-xs text-yellow-200 mt-1">Shop for eggs and food</p>
+            <p class="text-xs text-yellow-200 mt-2">{{ petCollection.length }}/50 Pets Owned</p>
+          </NuxtLink>
 
           <button
             @click="feedActivePet"
@@ -287,41 +287,6 @@
         </p>
       </div>
 
-      <!-- Modals -->
-      <!-- Summon Modal -->
-      <div v-if="showSummonModal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
-        <div class="bg-linear-to-br from-yellow-900 to-orange-900 rounded-3xl border-2 border-yellow-500 p-8 max-w-md w-full">
-          <h2 class="text-3xl font-bold mb-4 text-center">🎰 Summon a Pet!</h2>
-          <p class="text-center text-yellow-200 mb-6">Cost: 10 💰 per summon</p>
-
-          <div class="space-y-3 mb-6">
-            <button
-              @click="summonPet(1)"
-              class="w-full bg-yellow-600 hover:bg-yellow-500 py-3 rounded-lg font-bold transition transform hover:scale-105"
-            >
-              Summon 1 (10 💰)
-            </button>
-            <button
-              @click="summonPet(10)"
-              class="w-full bg-yellow-600 hover:bg-yellow-500 py-3 rounded-lg font-bold transition transform hover:scale-105"
-            >
-              Summon 10 (90 💰) - DISCOUNT!
-            </button>
-          </div>
-
-          <p class="text-xs text-yellow-300 text-center mb-4">
-            60% Common • 30% Rare • 8% Epic • 2% Legendary
-          </p>
-
-          <button
-            @click="showSummonModal = false"
-            class="w-full bg-slate-700 hover:bg-slate-600 py-2 rounded-lg font-bold transition"
-          >
-            Close
-          </button>
-        </div>
-      </div>
-
       <!-- Success notification -->
       <div
         v-if="notification"
@@ -342,7 +307,6 @@ definePageMeta({ auth: true })
 const playerStore = usePlayerStore()
 const supabase = useSupabaseClient()
 
-const showSummonModal = ref(false)
 const showLeaderboard = ref(false)
 const showPetDetails = ref(false)
 const notification = ref('')
@@ -396,39 +360,6 @@ const selectActivePet = async (petId: string) => {
   } catch (err) {
     notification.value = '❌ Failed to select pet'
     setTimeout(() => notification.value = '', 2000)
-  }
-}
-
-const summonPet = async (count: number) => {
-  console.log('UI summon clicked:', { count })
-
-  try {
-    const costInGold = count * 10 * (count === 10 ? 0.9 : 1)
-
-    console.log('UI cost/check:', {
-      costInGold,
-      goldBalance: playerStore.goldBalance,
-      profileId: playerStore.profile?.id,
-    })
-
-    if (playerStore.goldBalance < costInGold) {
-      notification.value = '❌ Not enough gold!'
-      setTimeout(() => (notification.value = ''), 2000)
-      return
-    }
-
-    for (let i = 0; i < count; i++) {
-      console.log('UI summoning iteration:', i + 1)
-      await playerStore.summonPet()
-    }
-
-    notification.value = `🎉 You summoned ${count} pet(s)!`
-    setTimeout(() => (notification.value = ''), 2000)
-    showSummonModal.value = false
-  } catch (err: any) {
-    console.error('UI Summon failed error object:', err)
-    notification.value = `❌ Summon failed: ${err?.message ?? 'unknown error'}`
-    setTimeout(() => (notification.value = ''), 4000)
   }
 }
 
@@ -512,6 +443,11 @@ const claimDailyRewards = async () => {
 onMounted(async () => {
   try {
     const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      await navigateTo('/login')
+      return
+    }
+
     if (user && !playerStore.isInitialized) {
       await playerStore.fetchPlayerProfile(user.id)
     }

@@ -44,19 +44,21 @@ export const usePlayerStore = defineStore('player', {
         this.loading = true
         this.error = null
 
-        // Create user profile in canonical table
+        // Auth also creates a profile row, so update it if it already exists.
         const { error: profileError } = await supabase
           .from('profiles')
-          .insert({
+          .upsert({
             id: userId,
             email,
+            username: trainerName,
+            full_name: trainerName,
             trainer_name: trainerName,
             level: 1,
             experience: 0,
             coins: 500, // starting gold
-            total_pets_owned: 1,
+            total_pets_owned: 0,
             active_pet_id: null,
-          })
+          }, { onConflict: 'id' })
 
         if (profileError) throw profileError
 
@@ -153,6 +155,14 @@ async fetchUserPets(userId: string) {
       const supabase = useSupabaseClient()
 
       try {
+        const { count: existingPetCount, error: countError } = await supabase
+          .from('user_pets')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', userId)
+
+        if (countError) throw countError
+        if ((existingPetCount ?? 0) > 0) return
+
         const { data: species, error: speciesError } = await supabase
           .from('pet_species')
           .select('*')
@@ -319,92 +329,6 @@ async fetchUserPets(userId: string) {
         this.error = err.message
       }
     },
-
-    async summonPet() {
-  const supabase = useSupabaseClient()
-
-  try {
-    // Must have an authenticated session; RLS uses auth.uid()
-    const { data: sessionData, error: sessionErr } = await supabase.auth.getSession()
-    if (sessionErr) throw sessionErr
-    const authUserId = sessionData?.session?.user?.id
-    if (!authUserId) throw new Error('Not authenticated')
-
-    // Keep your existing guard, but don't trust it for user_id
-    if (!this.profile) return null
-
-    const roll = Math.random()
-    let rarity: 'common' | 'rare' | 'epic' | 'legendary'
-
-    if (roll < 0.6) rarity = 'common'
-    else if (roll < 0.9) rarity = 'rare'
-    else if (roll < 0.98) rarity = 'epic'
-    else rarity = 'legendary'
-
-    const { data: petSpecies, error: speciesError } = await supabase
-      .from('pet_species')
-      .select('*')
-      .eq('rarity', rarity)
-      .limit(1)
-      .single()
-
-    if (speciesError) throw speciesError
-    if (!petSpecies) return null
-
-    const costInGold =
-      rarity === 'legendary' ? 1000 :
-      rarity === 'epic' ? 500 :
-      100
-
-    // Ensure you have enough gold (use authUserId profile row)
-    const currentGold = Number(this.profile.coins ?? 0)
-    if (currentGold < costInGold) throw new Error('Not enough gold to summon')
-
-    // IMPORTANT: deduct coins for the authenticated user id
-    // (so this method is consistent even if store profile is stale)
-    {
-      const { error: goldErr } = await supabase
-        .from('profiles')
-        .update({ coins: currentGold - costInGold })
-        .eq('id', authUserId)
-
-      if (goldErr) throw goldErr
-
-      this.profile.coins = currentGold - costInGold
-    }
-
-    // ✅ RLS-safe insert: user_id must equal auth.uid()
-    const { error: petError } = await supabase
-      .from('user_pets')
-      .insert({
-        user_id: authUserId,
-        pet_species_id: petSpecies.id,
-        level: 1,
-        experience: 0,
-        current_hp: petSpecies.base_hp,
-        max_hp: petSpecies.base_hp,
-        hunger: 50,
-        happiness: 70,
-        affection: 0,
-      })
-
-    if (petError) throw petError
-
-    await this.fetchUserPets(authUserId)
-
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .update({ total_pets_owned: this.pets.length })
-      .eq('id', authUserId)
-
-    if (profileError) throw profileError
-
-    return petSpecies
-  } catch (err: any) {
-    this.error = err.message
-    throw err
-  }
-},
 
     async completeDailyChallenge(challengeId: string) {
       const supabase = useSupabaseClient()

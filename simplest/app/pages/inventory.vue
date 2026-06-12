@@ -333,6 +333,11 @@ const capitalize = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : '
 
 onMounted(async () => {
   const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    await navigateTo('/login')
+    return
+  }
+
   if (user && !playerStore.isInitialized) await playerStore.fetchPlayerProfile(user.id)
   await fetchInventory()
 })

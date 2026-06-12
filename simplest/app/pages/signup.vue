@@ -154,6 +154,13 @@ const signUp = async () => {
     const { data, error } = await supabase.auth.signUp({
       email: email.value,
       password: password.value,
+      options: {
+        data: {
+          username: trainerName.value.trim(),
+          full_name: trainerName.value.trim(),
+          trainer_name: trainerName.value.trim(),
+        },
+      },
     })
 
     if (error) {
