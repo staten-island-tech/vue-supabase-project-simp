@@ -145,10 +145,21 @@
         </div>
       </div>
 
+      <!-- Hatching Animation Overlay -->
+      <div v-if="hatchingEgg" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50">
+        <p
+          ref="eggEl"
+          class="text-9xl"
+          :class="rarityGlowClass(hatchingEgg.rarity)"
+        >
+          {{ hatchingEgg.emoji }}
+        </p>
+      </div>
+
       <!-- Hatch Result Modal -->
       <div v-if="hatchResult" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4">
-        <div class="rounded-3xl border-2 border-yellow-400 bg-linear-to-br from-yellow-900 to-orange-900 p-10 max-w-sm w-full text-center">
-          <p class="text-8xl mb-4 animate-bounce">{{ hatchResult.emoji }}</p>
+        <div ref="resultCardEl" class="rounded-3xl border-2 border-yellow-400 bg-linear-to-br from-yellow-900 to-orange-900 p-10 max-w-sm w-full text-center">
+          <p ref="resultEmojiEl" class="text-8xl mb-4">{{ hatchResult.emoji }}</p>
           <h2 class="text-3xl font-black mb-1">{{ hatchResult.name }}</h2>
           <p class="text-lg font-bold mb-2" :class="rarityTextClass(hatchResult.rarity)">
             {{ capitalize(hatchResult.rarity) }}
@@ -165,7 +176,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, nextTick } from 'vue'
+import gsap from 'gsap'
 import { usePlayerStore } from '../store/player'
 
 definePageMeta({ auth: true })
@@ -180,6 +192,12 @@ const notification = ref('')
 const notificationError = ref(false)
 const hatchResult = ref<any>(null)
 
+// Hatching animation state
+const hatchingEgg = ref<{ emoji: string; rarity: string } | null>(null)
+const eggEl = ref<HTMLElement | null>(null)
+const resultCardEl = ref<HTMLElement | null>(null)
+const resultEmojiEl = ref<HTMLElement | null>(null)
+
 const ownedEggs = ref<any[]>([])
 const ownedFood = ref<any[]>([])
 
@@ -187,6 +205,49 @@ const showNotification = (msg: string, isError = false) => {
   notification.value = msg
   notificationError.value = isError
   setTimeout(() => (notification.value = ''), 3000)
+}
+
+// Shakes and bursts the egg with increasing intensity, resolves when done
+const playEggShakeAnimation = (rarity: string) => {
+  return new Promise<void>((resolve) => {
+    if (!eggEl.value) { resolve(); return }
+
+    const tl = gsap.timeline({ onComplete: resolve })
+    gsap.set(eggEl.value, { rotation: 0, scale: 1, opacity: 1 })
+
+    // Building shake — gets faster and wider
+    tl.to(eggEl.value, { rotation: -8, duration: 0.12, ease: 'power1.inOut' })
+      .to(eggEl.value, { rotation: 8, duration: 0.12, ease: 'power1.inOut' })
+      .to(eggEl.value, { rotation: -10, duration: 0.1, ease: 'power1.inOut' })
+      .to(eggEl.value, { rotation: 10, duration: 0.1, ease: 'power1.inOut' })
+      .to(eggEl.value, { rotation: -14, scale: 1.05, duration: 0.09, ease: 'power1.inOut' })
+      .to(eggEl.value, { rotation: 14, scale: 1.05, duration: 0.09, ease: 'power1.inOut' })
+      .to(eggEl.value, { rotation: -18, scale: 1.1, duration: 0.07, ease: 'power1.inOut' })
+      .to(eggEl.value, { rotation: 18, scale: 1.1, duration: 0.07, ease: 'power1.inOut' })
+      // Final burst — flash bigger then pop
+      .to(eggEl.value, { rotation: 0, scale: 1.4, duration: 0.15, ease: 'power2.out' })
+      .to(eggEl.value, { scale: 0, opacity: 0, duration: 0.25, ease: 'power3.in' })
+  })
+}
+
+// Pops the result card in with a bouncy reveal, plus an elastic emoji pop
+const animateHatchResultIn = async () => {
+  await nextTick()
+  if (!resultCardEl.value) return
+
+  gsap.fromTo(
+    resultCardEl.value,
+    { scale: 0, rotation: -15, opacity: 0 },
+    { scale: 1, rotation: 0, opacity: 1, duration: 0.5, ease: 'back.out(1.8)' }
+  )
+
+  if (resultEmojiEl.value) {
+    gsap.fromTo(
+      resultEmojiEl.value,
+      { scale: 0, rotation: 0 },
+      { scale: 1, rotation: 360, duration: 0.7, delay: 0.15, ease: 'elastic.out(1, 0.5)' }
+    )
+  }
 }
 
 const fetchInventory = async () => {
@@ -241,6 +302,12 @@ const openEgg = async (egg: any) => {
     if (!species || species.length === 0) throw new Error('No pets found for this rarity')
     const picked = species[Math.floor(Math.random() * species.length)]
 
+    // Play the shaking/bursting egg animation before revealing the result
+    hatchingEgg.value = { emoji: rarityEmoji(egg.rarity), rarity: egg.rarity }
+    await nextTick()
+    await playEggShakeAnimation(egg.rarity)
+    hatchingEgg.value = null
+
     // Add pet to user_pets
     const { data: { user } } = await supabase.auth.getUser()
     await supabase.from('user_pets').insert({
@@ -276,6 +343,7 @@ const openEgg = async (egg: any) => {
     await playerStore.incrementChallengeProgress('SUMMON_PET')
 
     hatchResult.value = { name: picked.name, emoji: picked.emoji, rarity: picked.rarity }
+    await animateHatchResultIn()
   } catch (err: any) {
     showNotification(`❌ ${err.message}`, true)
   } finally {
@@ -330,6 +398,13 @@ const rarityTextClass = (rarity: string) => ({
   epic:      'text-purple-300',
   legendary: 'text-yellow-300',
 }[rarity] ?? 'text-white')
+
+const rarityGlowClass = (rarity: string) => ({
+  common:    'drop-shadow-[0_0_20px_rgba(156,163,175,0.7)]',
+  rare:      'drop-shadow-[0_0_25px_rgba(96,165,250,0.8)]',
+  epic:      'drop-shadow-[0_0_30px_rgba(192,132,252,0.85)]',
+  legendary: 'drop-shadow-[0_0_40px_rgba(250,204,21,0.9)]',
+}[rarity] ?? '')
 
 const rarityEmoji = (r: string) => ({ common: '🥚', rare: '💎', epic: '🔮', legendary: '⭐' }[r] ?? '🥚')
 const foodEmoji = (k: string) => ({ basic: '🍓', premium: '🍖', special: '🐲' }[k] ?? '🍖')

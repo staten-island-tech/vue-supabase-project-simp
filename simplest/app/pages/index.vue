@@ -64,7 +64,7 @@
             class="rounded-2xl border-2 border-yellow-500 bg-linear-to-br from-yellow-900 to-orange-900 p-6 hover:border-yellow-300 hover:shadow-lg hover:scale-105 transition cursor-pointer"
           >
             <p class="text-4xl mb-2">🎰</p>
-            <h3 class="font-bold text-lg">Buy Eggs</h3>
+            <h3 class="font-bold text-lg">Shop</h3>
             <p class="text-xs text-yellow-200 mt-1">Shop for eggs and food</p>
             <p class="text-xs text-yellow-200 mt-2">{{ petCollection.length }}/50 Pets Owned</p>
           </NuxtLink>
@@ -543,10 +543,14 @@ const fetchLeaderboard = async () => {
   loadingLeaderboard.value = true
   try {
     const { data, error } = await supabase
-      .rpc('get_leaderboard_page', { limit_count: 100 })
+      .from('leaderboard')
+      .select('*')
+      .order('level', { ascending: false })
+      .order('experience', { ascending: false })
+      .limit(100)
 
     if (error) throw error
-    leaderboardData.value = data ?? []
+    leaderboardData.value = data || []
   } catch (err) {
     showNotification('❌ Failed to load leaderboard')
   } finally {
@@ -561,9 +565,7 @@ const viewPlayerDetails = async (player: any) => {
 
   try {
     const { data, error } = await supabase
-      .from('public_pet_collection')
-      .select('*')
-      .eq('user_id', player.id)
+      .rpc('get_public_pet_collection', { p_user_id: player.id })
 
     if (error) throw error
     selectedPlayerPets.value = data || []

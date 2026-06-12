@@ -58,7 +58,7 @@
             <p class="text-yellow-300 font-bold text-lg">💰 {{ egg.gold_price }}</p>
             <button
               @click="buyItem(egg)"
-              :disabled="playerStore.goldBalance < egg.gold_price || buying"
+              :disabled="playerStore.goldBalance < egg.gold_price || !!buying"
               class="w-full py-2 rounded-lg font-bold text-sm transition"
               :class="playerStore.goldBalance >= egg.gold_price
                 ? 'bg-yellow-500 hover:bg-yellow-400 text-black'
@@ -88,7 +88,7 @@
             <p class="text-yellow-300 font-bold text-lg">💰 {{ food.gold_price }}</p>
             <button
               @click="buyItem(food)"
-              :disabled="playerStore.goldBalance < food.gold_price || buying"
+              :disabled="playerStore.goldBalance < food.gold_price || !!buying"
               class="w-full py-2 rounded-lg font-bold text-sm transition"
               :class="playerStore.goldBalance >= food.gold_price
                 ? 'bg-yellow-500 hover:bg-yellow-400 text-black'
@@ -152,7 +152,9 @@ const fetchDropRates = async () => {
 }
 
 const buyItem = async (item: any) => {
-  if (!playerStore.profile) return
+  const profile = playerStore.profile
+  if (!profile) return
+
   if (playerStore.goldBalance < item.gold_price) {
     showNotification('❌ Not enough gold!', true)
     return
@@ -170,7 +172,7 @@ const buyItem = async (item: any) => {
     const { data: existing } = await supabase
       .from('user_shop_inventory')
       .select('*')
-      .eq('user_id', playerStore.profile.id)
+      .eq('user_id', profile.id)
       .eq('shop_item_id', item.id)
       .maybeSingle()
 
@@ -178,13 +180,13 @@ const buyItem = async (item: any) => {
       await supabase
         .from('user_shop_inventory')
         .update({ [countField]: existing[countField] + 1, updated_at: new Date().toISOString() })
-        .eq('user_id', playerStore.profile.id)
+        .eq('user_id', profile.id)
         .eq('shop_item_id', item.id)
     } else {
       await supabase
         .from('user_shop_inventory')
         .insert({
-          user_id: playerStore.profile.id,
+          user_id: profile.id,
           shop_item_id: item.id,
           eggs_count: item.item_kind === 'egg' ? 1 : 0,
           food_count: item.item_kind === 'food' ? 1 : 0,
@@ -193,7 +195,7 @@ const buyItem = async (item: any) => {
 
     // Log purchase
     await supabase.from('shop_purchase_log').insert({
-      user_id: playerStore.profile.id,
+      user_id: profile.id,
       shop_item_id: item.id,
       qty: 1,
       gold_spent: item.gold_price,
