@@ -543,14 +543,10 @@ const fetchLeaderboard = async () => {
   loadingLeaderboard.value = true
   try {
     const { data, error } = await supabase
-      .from('leaderboard')
-      .select('*')
-      .order('level', { ascending: false })
-      .order('experience', { ascending: false })
-      .limit(100)
+      .rpc('get_leaderboard_page', { limit_count: 100 })
 
     if (error) throw error
-    leaderboardData.value = data || []
+    leaderboardData.value = data ?? []
   } catch (err) {
     showNotification('❌ Failed to load leaderboard')
   } finally {
