@@ -4,8 +4,6 @@ import type {
   UserPet,
   PetSpecies,
   PetAbility,
-  UserDailyProgress,
-  DailyChallenge
 } from '../types/database.types'
 
 export const usePlayerStore = defineStore('player', {
@@ -13,7 +11,7 @@ export const usePlayerStore = defineStore('player', {
     profile: null as (UserProfile & Record<string, any>) | null,
     activePet: null as (UserPet & { species?: PetSpecies | null; abilities?: PetAbility[] | null }) | null,
     pets: [] as (UserPet & { species?: PetSpecies })[] | [],
-    dailyProgress: [] as UserDailyProgress[] | [],
+    dailyProgress: [] as any[],
     loading: false,
     error: null as string | null,
   }),
@@ -23,16 +21,12 @@ export const usePlayerStore = defineStore('player', {
     petCollection: (state) => state.pets,
     activePetLevel: (state) => state.activePet?.level ?? 0,
     activePetName: (state) => state.activePet?.nickname || state.activePet?.species?.name || 'Unknown',
-
-    // ✅ DB uses "coins" not "gold"
     goldBalance: (state) => Number(state.profile?.coins ?? 0),
-
     trainerLevel: (state) => state.profile?.level ?? 1,
     nextLevelExp: (state) => {
       const level = state.profile?.level ?? 1
       return level * 100
     },
-
     dailyChallengesCompleted: (state) => state.dailyProgress.filter(d => d.completed).length,
   },
 
@@ -44,7 +38,6 @@ export const usePlayerStore = defineStore('player', {
         this.loading = true
         this.error = null
 
-        // Auth also creates a profile row, so update it if it already exists.
         const { error: profileError } = await supabase
           .from('profiles')
           .upsert({
@@ -55,7 +48,7 @@ export const usePlayerStore = defineStore('player', {
             trainer_name: trainerName,
             level: 1,
             experience: 0,
-            coins: 500, // starting gold
+            coins: 500,
             total_pets_owned: 0,
             active_pet_id: null,
           }, { onConflict: 'id' })
@@ -64,12 +57,11 @@ export const usePlayerStore = defineStore('player', {
 
         await this.fetchPlayerProfile(userId)
         await this.giveStarterPets(userId)
-
-        this.loading = false
       } catch (err: any) {
         this.error = err.message
-        this.loading = false
         throw err
+      } finally {
+        this.loading = false
       }
     },
 
@@ -99,55 +91,164 @@ export const usePlayerStore = defineStore('player', {
       }
     },
 
-async fetchUserPets(userId: string) {
-  const supabase = useSupabaseClient()
+    async fetchUserPets(userId: string) {
+      const supabase = useSupabaseClient()
 
-  try {
-    const { data, error } = await supabase
-      .from('user_pets')
-      .select('*, pet_species(*)')
-      .eq('user_id', userId)
+      try {
+        const { data, error } = await supabase
+          .from('user_pets')
+          .select('*, pet_species(*)')
+          .eq('user_id', userId)
 
-    if (error) throw error
+        if (error) throw error
 
-    const rows = (data ?? []) as any[]
+        const rows = (data ?? []) as any[]
 
-    // Normalize: map joined pet_species(*) -> pet.species
-    this.pets = rows.map((p) => ({
-      ...p,
-      species: p.pet_species ?? null,
-    }))
+        this.pets = rows.map((p) => ({
+          ...p,
+          species: p.pet_species ?? null,
+        }))
 
-    const activeId = this.profile?.active_pet_id
+        const activeId = this.profile?.active_pet_id
 
-    if (activeId) {
-      this.activePet = (this.pets.find((p) => p.id === activeId) ?? null) as any
-    } else if (this.pets.length > 0) {
-      this.activePet = this.pets[0] as any
-      await this.setActivePet(this.pets[0].id)
-    } else {
-      this.activePet = null
-    }
-  } catch (err: any) {
-    this.error = err.message
-  }
-},
+        if (activeId) {
+          this.activePet = (this.pets.find((p) => p.id === activeId) ?? null) as any
+        } else if (this.pets.length > 0) {
+          this.activePet = this.pets[0] as any
+          await this.setActivePet(this.pets[0].id)
+        } else {
+          this.activePet = null
+        }
+      } catch (err: any) {
+        this.error = err.message
+      }
+    },
+
+    // Fetch today's challenge progress, creating rows if they don't exist yet.
+    // Includes action_key + target_count so we can match actions -> challenges.
     async fetchDailyProgress(userId: string) {
       const supabase = useSupabaseClient()
       const today = new Date().toISOString().split('T')[0]
 
+      const selectQuery = `
+        id,
+        user_id,
+        challenge_id,
+        progress,
+        completed,
+        date,
+        daily_challenges (
+          name,
+          reward_gold,
+          reward_experience,
+          target_count,
+          action_key
+        )
+      `
+
       try {
         const { data, error } = await supabase
           .from('user_daily_progress')
-          .select('*')
+          .select(selectQuery)
           .eq('user_id', userId)
           .eq('date', today)
 
         if (error) throw error
 
-        this.dailyProgress = (data || []) as any
+        let rows = data || []
+
+        if (rows.length === 0) {
+          await this.createDailyProgress(userId)
+
+          const { data: retry } = await supabase
+            .from('user_daily_progress')
+            .select(selectQuery)
+            .eq('user_id', userId)
+            .eq('date', today)
+
+          rows = retry || []
+        }
+
+        this.dailyProgress = rows.map((row: any) => ({
+          id: row.id,
+          challenge_id: row.challenge_id,
+          progress: row.progress,
+          completed: row.completed,
+          date: row.date,
+          title: row.daily_challenges?.name ?? '',
+          reward_gold: row.daily_challenges?.reward_gold ?? 0,
+          reward_experience: row.daily_challenges?.reward_experience ?? 0,
+          target_count: row.daily_challenges?.target_count ?? 1,
+          action_key: row.daily_challenges?.action_key ?? null,
+        }))
       } catch (err: any) {
         this.error = err.message
+      }
+    },
+
+    async createDailyProgress(userId: string) {
+      const supabase = useSupabaseClient()
+      const today = new Date().toISOString().split('T')[0]
+
+      const { data: challenges } = await supabase
+        .from('daily_challenges')
+        .select('*')
+
+      if (!challenges) return
+
+      const rows = challenges.map((c) => ({
+        user_id: userId,
+        challenge_id: c.id,
+        date: today,
+        progress: 0,
+        completed: false,
+      }))
+
+      await supabase.from('user_daily_progress').insert(rows)
+    },
+
+    // Call this whenever the player does something that might count toward
+    // a daily challenge (feeding, battling, leveling up, summoning, logging in).
+    // actionKey must match daily_challenges.action_key (e.g. 'FEED_PET').
+    async incrementChallengeProgress(actionKey: string, amount = 1) {
+      const supabase = useSupabaseClient()
+
+      try {
+        if (!this.profile) return
+
+        const entry = this.dailyProgress.find(
+          (d) => d.action_key === actionKey && !d.completed
+        )
+        if (!entry) return
+
+        const newProgress = Math.min(entry.target_count, entry.progress + amount)
+        const justCompleted = newProgress >= entry.target_count
+
+        const { error } = await supabase
+          .from('user_daily_progress')
+          .update({
+            progress: newProgress,
+            completed: justCompleted,
+            completed_at: justCompleted ? new Date().toISOString() : null,
+          })
+          .eq('id', entry.id)
+
+        if (error) throw error
+
+        entry.progress = newProgress
+        entry.completed = justCompleted
+
+        if (justCompleted) {
+          await this.addGold(entry.reward_gold)
+          if (this.activePet) {
+            await this.addExperience(this.activePet.id, entry.reward_experience)
+          }
+        }
+
+        return justCompleted
+      } catch (err: any) {
+        this.error = err.message
+        return false
       }
     },
 
@@ -191,12 +292,9 @@ async fetchUserPets(userId: string) {
 
         await this.fetchUserPets(userId)
 
-        // Keep counters in sync (optional, but aligns with your earlier logic)
         const { error: profileError } = await supabase
           .from('profiles')
-          .update({
-            total_pets_owned: this.pets.length, // after refresh this should include new pet
-          })
+          .update({ total_pets_owned: this.pets.length })
           .eq('id', userId)
 
         if (profileError) throw profileError
@@ -249,6 +347,7 @@ async fetchUserPets(userId: string) {
         pet.happiness = newHappiness
 
         await this.addGold(10)
+        await this.incrementChallengeProgress('FEED_PET')
       } catch (err: any) {
         this.error = err.message
       }
@@ -260,6 +359,8 @@ async fetchUserPets(userId: string) {
       try {
         const pet = this.pets.find(p => p.id === petId)
         if (!pet || !this.profile) return
+
+        const originalLevel = pet.level
 
         let newExp = pet.experience + amount
         let newLevel = pet.level
@@ -283,9 +384,8 @@ async fetchUserPets(userId: string) {
         pet.experience = newExp
         pet.level = newLevel
 
-        // Give player experience too (same model as before)
-        let playerExp = this.profile.experience + Math.floor(amount / 2)
-        let playerLevel = this.profile.level
+        let playerExp = (this.profile.experience ?? 0) + Math.floor(amount / 2)
+        let playerLevel = this.profile.level ?? 1
 
         while (playerExp >= this.nextLevelExp) {
           playerExp -= this.nextLevelExp
@@ -304,6 +404,11 @@ async fetchUserPets(userId: string) {
 
         this.profile.experience = playerExp
         this.profile.level = playerLevel
+
+        // If the pet leveled up, count it toward the "Level Up" daily challenge.
+        if (newLevel > originalLevel) {
+          await this.incrementChallengeProgress('LEVEL_UP')
+        }
       } catch (err: any) {
         this.error = err.message
       }
@@ -315,7 +420,7 @@ async fetchUserPets(userId: string) {
       try {
         if (!this.profile) return
 
-        const newCoins = Number(this.profile.coins ?? 0) + amount
+        const newCoins = Math.max(0, Number(this.profile.coins ?? 0) + amount)
 
         const { error } = await supabase
           .from('profiles')
@@ -330,106 +435,58 @@ async fetchUserPets(userId: string) {
       }
     },
 
-    async completeDailyChallenge(challengeId: string) {
+    async claimDailyLoginReward() {
       const supabase = useSupabaseClient()
 
       try {
-        if (!this.profile) return
+        if (!this.profile) return null
 
-        const today = new Date().toISOString().split('T')[0]
+        const now = new Date()
 
-        const { data: challenge, error: challengeError } = await supabase
-          .from('daily_challenges')
-          .select('*')
-          .eq('id', challengeId)
-          .single()
+        const lastClaim = this.profile.last_daily_claim
+          ? new Date(this.profile.last_daily_claim)
+          : null
 
-        if (challengeError) throw challengeError
-        if (!challenge) return
+        if (lastClaim && lastClaim.toDateString() === now.toDateString()) {
+          return null
+        }
+
+        let streak = this.profile.daily_streak || 0
+
+        if (lastClaim) {
+          const diffDays = Math.floor(
+            (now.getTime() - lastClaim.getTime()) / (1000 * 60 * 60 * 24)
+          )
+          streak = diffDays === 1 ? streak + 1 : 1
+        } else {
+          streak = 1
+        }
+
+        const reward = 100 + (streak * 25)
 
         const { error } = await supabase
-          .from('user_daily_progress')
+          .from('profiles')
           .update({
-            completed: true,
-            completed_at: new Date().toISOString(),
-            progress: challenge.target_count,
+            coins: Number(this.profile.coins) + reward,
+            daily_streak: streak,
+            last_daily_claim: now.toISOString(),
           })
-          .eq('user_id', this.profile.id)
-          .eq('challenge_id', challengeId)
-          .eq('date', today)
+          .eq('id', this.profile.id)
 
         if (error) throw error
 
-        await this.addGold(challenge.reward_gold)
+        this.profile.coins += reward
+        this.profile.daily_streak = streak
+        this.profile.last_daily_claim = now.toISOString()
 
-        if (this.activePet) {
-          await this.addExperience(this.activePet.id, challenge.reward_experience)
-        }
+        // Also progress the "Daily Login" challenge
+        await this.incrementChallengeProgress('LOGIN')
 
-        await this.fetchDailyProgress(this.profile.id)
+        return reward
       } catch (err: any) {
         this.error = err.message
+        return null
       }
     },
-    async claimDailyLoginReward() {
-  const supabase = useSupabaseClient()
-
-  try {
-    if (!this.profile) return null
-
-    const now = new Date()
-
-    const lastClaim = this.profile.last_daily_claim
-      ? new Date(this.profile.last_daily_claim)
-      : null
-
-    // Already claimed today
-    if (
-      lastClaim &&
-      lastClaim.toDateString() === now.toDateString()
-    ) {
-      return null
-    }
-
-    let streak = this.profile.daily_streak || 0
-
-    if (lastClaim) {
-      const diffDays = Math.floor(
-        (now.getTime() - lastClaim.getTime()) /
-        (1000 * 60 * 60 * 24)
-      )
-
-      if (diffDays === 1) {
-        streak += 1
-      } else {
-        streak = 1
-      }
-    } else {
-      streak = 1
-    }
-
-    const reward = 100 + (streak * 25)
-
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        coins: Number(this.profile.coins) + reward,
-        daily_streak: streak,
-        last_daily_claim: now.toISOString(),
-      })
-      .eq('id', this.profile.id)
-
-    if (error) throw error
-
-    this.profile.coins += reward
-    this.profile.daily_streak = streak
-    this.profile.last_daily_claim = now.toISOString()
-
-    return reward
-  } catch (err: any) {
-    this.error = err.message
-    return null
-  }
-}
   },
 })

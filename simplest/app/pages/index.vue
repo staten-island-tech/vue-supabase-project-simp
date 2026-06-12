@@ -230,51 +230,57 @@
               📋 Daily Challenges
             </h3>
             <div class="space-y-3">
-              <div class="flex items-center gap-3 bg-black bg-opacity-30 p-3 rounded-lg">
-                <input
-                  type="checkbox"
-                  disabled
-                  checked
-                  class="w-5 h-5"
-                />
-                <div class="flex-1">
-                  <p class="font-bold line-through">Feed your pets (5/5)</p>
-                  <p class="text-xs text-yellow-200">+50 Gold</p>
-                </div>
-                <span>✅</span>
-              </div>
-              <div class="flex items-center gap-3 bg-black bg-opacity-30 p-3 rounded-lg">
-                <input
-                  type="checkbox"
-                  disabled
-                  class="w-5 h-5"
-                />
-                <div class="flex-1">
-                  <p class="font-bold">Win a battle</p>
-                  <p class="text-xs text-yellow-200">+100 Gold</p>
-                </div>
-                <span>🔄</span>
-              </div>
-              <div class="flex items-center gap-3 bg-black bg-opacity-30 p-3 rounded-lg">
-                <input
-                  type="checkbox"
-                  disabled
-                  checked
-                  class="w-5 h-5"
-                />
-                <div class="flex-1">
-                  <p class="font-bold line-through">Daily login bonus</p>
-                  <p class="text-xs text-yellow-200">+300 Gold</p>
-                </div>
-                <span>✅</span>
-              </div>
-              <button
-                @click="claimDailyRewards"
-                class="w-full mt-4 bg-yellow-600 hover:bg-yellow-500 py-3 rounded-lg font-bold transition transform hover:scale-105"
+              <div
+                v-for="task in playerStore.dailyProgress"
+                :key="task.id"
+                class="bg-black bg-opacity-30 p-3 rounded-lg"
               >
-                🎁 CLAIM REWARDS
-              </button>
+                <div class="flex items-center gap-3">
+                  <span class="text-xl">{{ task.completed ? '✅' : '🔄' }}</span>
+                  <div class="flex-1">
+                    <p class="font-bold" :class="task.completed ? 'line-through text-yellow-400' : ''">
+                      {{ task.title }}
+                    </p>
+                    <p class="text-xs text-yellow-200">
+                      {{ task.progress }}/{{ task.target_count }} • +{{ task.reward_gold }} Gold, +{{ task.reward_experience }} EXP
+                    </p>
+                  </div>
+                </div>
+                <!-- Progress bar -->
+                <div class="w-full bg-gray-700 rounded-full h-2 mt-2">
+                  <div
+                    class="h-2 rounded-full transition-all"
+                    :class="task.completed ? 'bg-green-500' : 'bg-yellow-500'"
+                    :style="{ width: Math.min(100, (task.progress / task.target_count) * 100) + '%' }"
+                  ></div>
+                </div>
+              </div>
+
+              <p v-if="playerStore.dailyProgress.length === 0" class="text-yellow-200 text-sm">
+                No challenges loaded yet.
+              </p>
             </div>
+          </div>
+
+          <!-- Daily Login Bonus -->
+          <div class="rounded-3xl border-2 border-pink-500 bg-linear-to-r from-pink-900 to-purple-900 p-6 flex flex-col">
+            <h3 class="text-2xl font-bold mb-4 flex items-center gap-2">
+              🎁 Daily Login Bonus
+            </h3>
+            <p class="text-pink-200 text-sm mb-2">
+              Current streak: <span class="font-bold text-yellow-300">{{ playerStore.profile?.daily_streak ?? 0 }} day(s)</span>
+            </p>
+            <p class="text-pink-200 text-sm mb-4">
+              Come back every day to grow your streak and earn bigger rewards!
+            </p>
+            <button
+              @click="claimDailyRewards"
+              :disabled="alreadyClaimedToday"
+              class="w-full mt-auto py-3 rounded-lg font-bold transition transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+              :class="alreadyClaimedToday ? 'bg-gray-700' : 'bg-yellow-600 hover:bg-yellow-500'"
+            >
+              {{ alreadyClaimedToday ? '✅ Already Claimed Today' : '🎁 CLAIM DAILY BONUS' }}
+            </button>
           </div>
         </div>
       </div>
@@ -313,6 +319,17 @@ const notification = ref('')
 
 const petCollection = computed(() => playerStore.petCollection)
 
+const alreadyClaimedToday = computed(() => {
+  const last = playerStore.profile?.last_daily_claim
+  if (!last) return false
+  return new Date(last).toDateString() === new Date().toDateString()
+})
+
+const showNotification = (msg: string, duration = 2000) => {
+  notification.value = msg
+  setTimeout(() => (notification.value = ''), duration)
+}
+
 const logout = async () => {
   await supabase.auth.signOut()
   await navigateTo('/login')
@@ -323,11 +340,9 @@ const feedActivePet = async () => {
 
   try {
     await playerStore.feedPet(playerStore.activePet.id)
-    notification.value = '✨ Your pet is happy and full!'
-    setTimeout(() => notification.value = '', 2000)
+    showNotification('✨ Your pet is happy and full!')
   } catch (err) {
-    notification.value = '❌ Failed to feed pet'
-    setTimeout(() => notification.value = '', 2000)
+    showNotification('❌ Failed to feed pet')
   }
 }
 
@@ -335,108 +350,69 @@ const increasePetAffection = async () => {
   if (!playerStore.activePet) return
 
   try {
-    const supabaseClient = useSupabaseClient()
     const newAffection = Math.min(100, playerStore.activePet.affection + 5)
 
-    await supabaseClient
+    await supabase
       .from('user_pets')
       .update({ affection: newAffection })
       .eq('id', playerStore.activePet.id)
 
     playerStore.activePet.affection = newAffection
-    notification.value = '💕 Your pet loves you more now!'
-    setTimeout(() => notification.value = '', 2000)
+    showNotification('💕 Your pet loves you more now!')
   } catch (err) {
-    notification.value = '❌ Failed to increase affection'
-    setTimeout(() => notification.value = '', 2000)
+    showNotification('❌ Failed to increase affection')
   }
 }
 
 const selectActivePet = async (petId: string) => {
   try {
     await playerStore.setActivePet(petId)
-    notification.value = '⭐ Pet selected!'
-    setTimeout(() => notification.value = '', 1000)
+    showNotification('⭐ Pet selected!', 1000)
   } catch (err) {
-    notification.value = '❌ Failed to select pet'
-    setTimeout(() => notification.value = '', 2000)
+    showNotification('❌ Failed to select pet')
   }
 }
 
 const battleRandom = async () => {
   try {
     if (!playerStore.activePet) {
-      notification.value = '❌ You need an active pet!'
+      showNotification('❌ You need an active pet!')
       return
     }
 
-    // Simulate battle
-    const battleDuration = 2000 // 2 seconds
     notification.value = '⚔️ Battle in progress...'
 
-    await new Promise(resolve => setTimeout(resolve, battleDuration))
+    await new Promise(resolve => setTimeout(resolve, 2000))
 
-    // Random win/loss
-    const won = Math.random() > 0.4 // 60% win rate
+    // Random win/loss (60% win rate)
+    const won = Math.random() > 0.4
 
     if (won) {
       await playerStore.addGold(50)
       await playerStore.addExperience(playerStore.activePet.id, 50)
-      notification.value = '🎉 Victory! +50 Gold, +50 EXP'
+      await playerStore.incrementChallengeProgress('BATTLE_WIN')
+      showNotification('🎉 Victory! +50 Gold, +50 EXP', 3000)
     } else {
-      notification.value = '😢 Defeat! Better luck next time'
+      showNotification('😢 Defeat! Better luck next time', 3000)
     }
-
-    setTimeout(() => notification.value = '', 3000)
   } catch (err) {
-    notification.value = '❌ Battle failed'
-    setTimeout(() => notification.value = '', 2000)
+    showNotification('❌ Battle failed')
   }
 }
 
 const claimDailyRewards = async () => {
   try {
-    const today = new Date().toISOString().split('T')[0]
-
     if (!playerStore.profile?.id) return
+    const reward = await playerStore.claimDailyLoginReward()
 
-    // ✅ Ensure rows exist for today (for all challenges)
-    await supabase.rpc('ensure_user_daily_progress', {
-      p_user_id: playerStore.profile.id,
-      p_date: today,
-    })
-
-    // Load challenges
-    const { data: challenges, error: challengesError } = await supabase
-      .from('daily_challenges')
-      .select('*')
-
-    if (challengesError) throw challengesError
-
-    // Load today's progress rows
-    const { data: progressRows, error: progressError } = await supabase
-      .from('user_daily_progress')
-      .select('*')
-      .eq('user_id', playerStore.profile.id)
-      .eq('date', today)
-
-    if (progressError) throw progressError
-
-    const completedChallengeIds = new Set(
-      (progressRows || []).filter(r => r.completed).map(r => r.challenge_id)
-    )
-
-    // Complete anything not completed yet
-    for (const c of (challenges || [])) {
-      if (completedChallengeIds.has(c.id)) continue
-      await playerStore.completeDailyChallenge(c.id)
+    if (!reward) {
+      showNotification('Already claimed today')
+      return
     }
 
-    notification.value = '🎁 Daily rewards processed!'
-    setTimeout(() => (notification.value = ''), 2000)
+    showNotification('🎁 +' + reward + ' coins')
   } catch (err) {
-    notification.value = '❌ Failed to claim rewards'
-    setTimeout(() => (notification.value = ''), 2000)
+    showNotification('❌ Failed to claim rewards')
   }
 }
 
@@ -447,10 +423,11 @@ onMounted(async () => {
       await navigateTo('/login')
       return
     }
-
-    if (user && !playerStore.isInitialized) {
+    if (!playerStore.isInitialized) {
       await playerStore.fetchPlayerProfile(user.id)
     }
+    // Counts toward the "Daily Login" challenge progress (separate from the gold bonus)
+    await playerStore.incrementChallengeProgress('LOGIN')
   } catch (err) {
     console.error('Failed to initialize player:', err)
     await navigateTo('/login')

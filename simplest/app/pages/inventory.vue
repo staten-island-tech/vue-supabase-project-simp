@@ -262,9 +262,18 @@ const openEgg = async (egg: any) => {
       .eq('user_id', playerStore.profile.id)
       .eq('shop_item_id', egg.shop_item_id)
 
-    // Refresh
+    // Refresh pets, then keep total_pets_owned in sync
     await playerStore.fetchUserPets(playerStore.profile.id)
     await fetchInventory()
+
+    await supabase
+      .from('profiles')
+      .update({ total_pets_owned: playerStore.pets.length })
+      .eq('id', playerStore.profile.id)
+    if (playerStore.profile) playerStore.profile.total_pets_owned = playerStore.pets.length
+
+    // Progress the "Expand Collection" daily challenge
+    await playerStore.incrementChallengeProgress('SUMMON_PET')
 
     hatchResult.value = { name: picked.name, emoji: picked.emoji, rarity: picked.rarity }
   } catch (err: any) {
