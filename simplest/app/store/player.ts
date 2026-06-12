@@ -371,5 +371,65 @@ async fetchUserPets(userId: string) {
         this.error = err.message
       }
     },
+    async claimDailyLoginReward() {
+  const supabase = useSupabaseClient()
+
+  try {
+    if (!this.profile) return null
+
+    const now = new Date()
+
+    const lastClaim = this.profile.last_daily_claim
+      ? new Date(this.profile.last_daily_claim)
+      : null
+
+    // Already claimed today
+    if (
+      lastClaim &&
+      lastClaim.toDateString() === now.toDateString()
+    ) {
+      return null
+    }
+
+    let streak = this.profile.daily_streak || 0
+
+    if (lastClaim) {
+      const diffDays = Math.floor(
+        (now.getTime() - lastClaim.getTime()) /
+        (1000 * 60 * 60 * 24)
+      )
+
+      if (diffDays === 1) {
+        streak += 1
+      } else {
+        streak = 1
+      }
+    } else {
+      streak = 1
+    }
+
+    const reward = 100 + (streak * 25)
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        coins: Number(this.profile.coins) + reward,
+        daily_streak: streak,
+        last_daily_claim: now.toISOString(),
+      })
+      .eq('id', this.profile.id)
+
+    if (error) throw error
+
+    this.profile.coins += reward
+    this.profile.daily_streak = streak
+    this.profile.last_daily_claim = now.toISOString()
+
+    return reward
+  } catch (err: any) {
+    this.error = err.message
+    return null
+  }
+}
   },
 })

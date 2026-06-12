@@ -180,15 +180,17 @@ const signUp = async () => {
     // Initialize player profile and give starter pets
     await playerStore.initializeNewPlayer(data.user.id, email.value, trainerName.value)
 
-    message.value = '✨ Trainer hatched! Redirecting to login...'
+    message.value = '✨ Trainer hatched! Welcome to Pet Kingdom!'
     messageType.value = 'success'
 
     email.value = ''
     password.value = ''
     trainerName.value = ''
 
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    await navigateTo('/login')
+await playerStore.fetchPlayerProfile(data.user.id)
+
+await new Promise(resolve => setTimeout(resolve, 1500))
+await navigateTo('/')
   } catch (err: any) {
     message.value = `⚠️ ${err.message || 'An error occurred'}`
     messageType.value = 'error'

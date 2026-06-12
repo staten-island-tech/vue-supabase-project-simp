@@ -5,10 +5,14 @@ export interface UserProfile {
   trainer_name: string
   level: number
   experience: number
-  coins: number          // ✅ rename gold -> coins
+  coins: number
   gems: number
   total_pets_owned: number
   active_pet_id: string | null
+
+  last_daily_claim?: string | null
+  daily_streak?: number
+
   created_at: string
   updated_at: string
 }
