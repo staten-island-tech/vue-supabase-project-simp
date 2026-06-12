@@ -93,13 +93,13 @@
           </button>
 
           <button
-            @click="showLeaderboard = true"
+            @click="openLeaderboard"
             class="rounded-2xl border-2 border-green-500 bg-linear-to-br from-green-900 to-emerald-900 p-6 hover:border-green-300 hover:shadow-lg hover:scale-105 transition cursor-pointer"
           >
             <p class="text-4xl mb-2">🏆</p>
             <h3 class="font-bold text-lg">Leaderboards</h3>
-            <p class="text-xs text-green-200 mt-1">Top 100 Trainers</p>
-            <p class="text-xs text-green-200 mt-2">Rank: #{{ Math.floor(Math.random() * 500) + 1 }}</p>
+            <p class="text-xs text-green-200 mt-1">Top Trainers</p>
+            <p class="text-xs text-green-200 mt-2">Ranked by Level</p>
           </button>
         </div>
 
@@ -300,6 +300,111 @@
       >
         {{ notification }}
       </div>
+
+      <!-- Leaderboard Modal -->
+      <div
+        v-if="showLeaderboard"
+        class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4"
+        @click.self="closeLeaderboard"
+      >
+        <div class="rounded-3xl border-2 border-green-500 bg-linear-to-br from-green-900 via-slate-900 to-emerald-900 shadow-2xl p-6 max-w-2xl w-full max-h-[85vh] overflow-y-auto">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-3xl font-black text-transparent bg-clip-text bg-linear-to-r from-green-300 to-emerald-300">
+              🏆 Leaderboard
+            </h2>
+            <button @click="closeLeaderboard" class="text-2xl hover:text-red-400 transition">✕</button>
+          </div>
+
+          <!-- Player detail view -->
+          <div v-if="selectedPlayer" class="mb-4">
+            <button @click="selectedPlayer = null" class="text-sm text-green-300 hover:text-green-200 mb-4 transition">
+              ← Back to leaderboard
+            </button>
+
+            <div class="rounded-2xl border border-green-600 bg-black bg-opacity-30 p-6 text-center mb-4">
+              <p class="text-7xl mb-2">{{ selectedPlayer.active_pet_emoji ?? '🧑‍🌾' }}</p>
+              <h3 class="text-2xl font-black">{{ selectedPlayer.trainer_name ?? 'Unknown Trainer' }}</h3>
+              <p class="text-sm text-green-300 mt-1">Level {{ selectedPlayer.level }} Trainer</p>
+
+              <div class="grid grid-cols-2 gap-3 mt-4 text-sm text-left">
+                <div class="bg-black bg-opacity-30 rounded-lg p-3 flex justify-between">
+                  <span>💰 Gold</span><span class="font-bold">{{ selectedPlayer.coins }}</span>
+                </div>
+                <div class="bg-black bg-opacity-30 rounded-lg p-3 flex justify-between">
+                  <span>✨ EXP</span><span class="font-bold">{{ selectedPlayer.experience }}</span>
+                </div>
+                <div class="bg-black bg-opacity-30 rounded-lg p-3 flex justify-between">
+                  <span>🐾 Pets</span><span class="font-bold">{{ selectedPlayer.total_pets_owned }}</span>
+                </div>
+                <div class="bg-black bg-opacity-30 rounded-lg p-3 flex justify-between">
+                  <span>🔥 Streak</span><span class="font-bold">{{ selectedPlayer.daily_streak ?? 0 }} days</span>
+                </div>
+              </div>
+
+              <div v-if="selectedPlayer.active_pet_species_name" class="mt-4 rounded-xl border border-cyan-600 bg-cyan-900 bg-opacity-30 p-4">
+                <p class="text-xs text-cyan-300 uppercase font-bold mb-1">Active Companion</p>
+                <p class="font-bold">{{ selectedPlayer.active_pet_nickname || selectedPlayer.active_pet_species_name }}</p>
+                <p class="text-xs" :class="rarityTextClass(selectedPlayer.active_pet_rarity ?? '')">
+                  {{ capitalize(selectedPlayer.active_pet_rarity ?? '') }} • Lvl {{ selectedPlayer.active_pet_level }}
+                </p>
+                <div class="grid grid-cols-3 gap-2 mt-2 text-xs">
+                  <span>ATK {{ selectedPlayer.active_pet_attack }}</span>
+                  <span>DEF {{ selectedPlayer.active_pet_defense }}</span>
+                  <span>SPD {{ selectedPlayer.active_pet_speed }}</span>
+                </div>
+              </div>
+            </div>
+
+            <h4 class="font-bold mb-2">🐾 Pet Collection ({{ selectedPlayerPets.length }})</h4>
+            <div v-if="loadingPlayerPets" class="text-center text-green-300 py-4 animate-pulse">Loading pets...</div>
+            <div v-else-if="selectedPlayerPets.length === 0" class="text-green-300 text-sm">No pets to show.</div>
+            <div v-else class="grid grid-cols-3 sm:grid-cols-4 gap-3">
+              <div
+                v-for="pet in selectedPlayerPets"
+                :key="pet.id"
+                class="rounded-xl border p-3 text-center"
+                :class="rarityCardClass(pet.species_rarity ?? '')"
+              >
+                <p class="text-3xl">{{ pet.species_emoji ?? '🐣' }}</p>
+                <p class="text-xs font-bold truncate">{{ pet.nickname || pet.species_name || 'Unknown' }}</p>
+                <p class="text-xs" :class="rarityTextClass(pet.species_rarity ?? '')">Lvl {{ pet.level }}</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Leaderboard list view -->
+          <div v-else>
+            <div v-if="loadingLeaderboard" class="text-center text-green-300 py-10 animate-pulse">
+              Loading rankings...
+            </div>
+            <div v-else class="space-y-2">
+              <div
+                v-for="(player, idx) in leaderboardData"
+                :key="player.id"
+                @click="viewPlayerDetails(player)"
+                class="flex items-center gap-3 bg-black bg-opacity-30 hover:bg-opacity-50 p-3 rounded-xl cursor-pointer transition"
+                :class="player.id === playerStore.profile?.id ? 'border border-yellow-400' : ''"
+              >
+                <span class="text-lg font-black w-8 text-center" :class="rankClass(idx)">
+                  {{ rankLabel(idx) }}
+                </span>
+                <p class="text-3xl">{{ player.active_pet_emoji ?? '🧑‍🌾' }}</p>
+                <div class="flex-1">
+                  <p class="font-bold">
+                    {{ player.trainer_name ?? 'Unknown Trainer' }}
+                    <span v-if="player.id === playerStore.profile?.id" class="text-xs text-yellow-300">(You)</span>
+                  </p>
+                  <p class="text-xs text-green-300">Lvl {{ player.level }} • {{ player.experience }} EXP</p>
+                </div>
+                <p class="text-yellow-300 font-bold text-sm">💰 {{ player.coins }}</p>
+              </div>
+              <p v-if="leaderboardData.length === 0" class="text-center text-green-300 py-6">
+                No trainers found yet.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -316,6 +421,12 @@ const supabase = useSupabaseClient()
 const showLeaderboard = ref(false)
 const showPetDetails = ref(false)
 const notification = ref('')
+
+const leaderboardData = ref<any[]>([])
+const loadingLeaderboard = ref(false)
+const selectedPlayer = ref<any>(null)
+const selectedPlayerPets = ref<any[]>([])
+const loadingPlayerPets = ref(false)
 
 const petCollection = computed(() => playerStore.petCollection)
 
@@ -415,6 +526,87 @@ const claimDailyRewards = async () => {
     showNotification('❌ Failed to claim rewards')
   }
 }
+
+const openLeaderboard = async () => {
+  showLeaderboard.value = true
+  selectedPlayer.value = null
+  await fetchLeaderboard()
+}
+
+const closeLeaderboard = () => {
+  showLeaderboard.value = false
+  selectedPlayer.value = null
+  selectedPlayerPets.value = []
+}
+
+const fetchLeaderboard = async () => {
+  loadingLeaderboard.value = true
+  try {
+    const { data, error } = await supabase
+      .from('leaderboard')
+      .select('*')
+      .order('level', { ascending: false })
+      .order('experience', { ascending: false })
+      .limit(100)
+
+    if (error) throw error
+    leaderboardData.value = data || []
+  } catch (err) {
+    showNotification('❌ Failed to load leaderboard')
+  } finally {
+    loadingLeaderboard.value = false
+  }
+}
+
+const viewPlayerDetails = async (player: any) => {
+  selectedPlayer.value = player
+  selectedPlayerPets.value = []
+  loadingPlayerPets.value = true
+
+  try {
+    const { data, error } = await supabase
+      .from('public_pet_collection')
+      .select('*')
+      .eq('user_id', player.id)
+
+    if (error) throw error
+    selectedPlayerPets.value = data || []
+  } catch (err) {
+    showNotification('❌ Failed to load player pets')
+  } finally {
+    loadingPlayerPets.value = false
+  }
+}
+
+const rankLabel = (idx: number) => {
+  if (idx === 0) return '🥇'
+  if (idx === 1) return '🥈'
+  if (idx === 2) return '🥉'
+  return `#${idx + 1}`
+}
+
+const rankClass = (idx: number) => {
+  if (idx === 0) return 'text-yellow-300'
+  if (idx === 1) return 'text-slate-300'
+  if (idx === 2) return 'text-orange-300'
+  return 'text-green-300'
+}
+
+const rarityCardClass = (rarity: string) => ({
+  common:    'border-gray-400 bg-linear-to-br from-gray-800 to-slate-900',
+  rare:      'border-blue-400 bg-linear-to-br from-blue-900 to-slate-900',
+  epic:      'border-purple-400 bg-linear-to-br from-purple-900 to-slate-900',
+  legendary: 'border-yellow-400 bg-linear-to-br from-yellow-900 to-orange-900',
+}[rarity] ?? 'border-gray-500 bg-slate-900')
+
+const rarityTextClass = (rarity: string) => ({
+  common:    'text-gray-300',
+  rare:      'text-blue-300',
+  epic:      'text-purple-300',
+  legendary: 'text-yellow-300',
+}[rarity] ?? 'text-white')
+
+const capitalize = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : ''
 
 onMounted(async () => {
   try {
