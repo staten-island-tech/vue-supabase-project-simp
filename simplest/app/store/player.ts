@@ -416,8 +416,135 @@ export const usePlayerStore = defineStore('player', {
         if (newLevel > originalLevel) {
           await this.incrementChallengeProgress('LEVEL_UP')
         }
+
+        // Check for evolution
+        const evolutionResult = await this.checkEvolution(petId)
+        return evolutionResult
       } catch (err: any) {
         this.error = err.message
+      }
+    },
+
+    // Evolves a pet into its evolved form if it has reached the required level.
+    // Returns { evolved: true, from, to } if an evolution happened, otherwise null.
+    async checkEvolution(petId: string) {
+      const supabase = useSupabaseClient()
+
+      try {
+        const pet = this.pets.find(p => p.id === petId)
+        if (!pet || !pet.species) return null
+
+        const { evolution_level, evolved_form_id } = pet.species as any
+        if (!evolved_form_id || !evolution_level) return null
+        if (pet.level < evolution_level) return null
+
+        const { data: evolvedSpecies, error: speciesError } = await supabase
+          .from('pet_species')
+          .select('*')
+          .eq('id', evolved_form_id)
+          .single()
+
+        if (speciesError) throw speciesError
+        if (!evolvedSpecies) return null
+
+        // Scale HP proportionally to the new base_hp
+        const hpRatio = pet.max_hp > 0 ? pet.current_hp / pet.max_hp : 1
+        const newMaxHp = evolvedSpecies.base_hp + Math.round(evolvedSpecies.base_hp * (pet.level * 0.05))
+        const newCurrentHp = Math.max(1, Math.round(newMaxHp * hpRatio))
+
+        const { error } = await supabase
+          .from('user_pets')
+          .update({
+            pet_species_id: evolvedSpecies.id,
+            max_hp: newMaxHp,
+            current_hp: newCurrentHp,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', petId)
+
+        if (error) throw error
+
+        const fromName = pet.species.name
+        const fromEmoji = pet.species.emoji
+
+        pet.pet_species_id = evolvedSpecies.id
+        pet.species = evolvedSpecies as any
+        pet.max_hp = newMaxHp
+        pet.current_hp = newCurrentHp
+
+        if (this.activePet?.id === petId) {
+          this.activePet = pet as any
+        }
+
+        return { evolved: true, from: fromName, fromEmoji, to: evolvedSpecies.name, toEmoji: evolvedSpecies.emoji }
+      } catch (err: any) {
+        this.error = err.message
+        return null
+      }
+    },
+
+    // --- Team management (up to 3 pets) ---
+    async setTeamSlot(petId: string, slot: number | null) {
+      const supabase = useSupabaseClient()
+
+      try {
+        if (!this.profile) return
+
+        // If assigning a slot, clear that slot from any other pet first
+        if (slot !== null) {
+          const occupant = this.pets.find(p => p.team_slot === slot && p.id !== petId)
+          if (occupant) {
+            await supabase.from('user_pets').update({ team_slot: null }).eq('id', occupant.id)
+            occupant.team_slot = null
+          }
+        }
+
+        const { error } = await supabase
+          .from('user_pets')
+          .update({ team_slot: slot })
+          .eq('id', petId)
+
+        if (error) throw error
+
+        const pet = this.pets.find(p => p.id === petId)
+        if (pet) pet.team_slot = slot
+      } catch (err: any) {
+        this.error = err.message
+      }
+    },
+
+    // --- Play with a pet: boosts happiness & affection, short cooldown ---
+    async playWithPet(petId: string) {
+      const supabase = useSupabaseClient()
+
+      try {
+        const pet = this.pets.find(p => p.id === petId)
+        if (!pet) return { ok: false, message: 'Pet not found' }
+
+        const cooldown = await this.getAbilityCooldown(petId, 'PLAY')
+        if (cooldown && cooldown.getTime() > Date.now()) {
+          return { ok: false, message: 'Your pet needs a break before playing again', cooldownUntil: cooldown }
+        }
+
+        const newHappiness = Math.min(100, pet.happiness + 15)
+        const newAffection = Math.min(100, pet.affection + 8)
+
+        const { error } = await supabase
+          .from('user_pets')
+          .update({ happiness: newHappiness, affection: newAffection, updated_at: new Date().toISOString() })
+          .eq('id', petId)
+
+        if (error) throw error
+
+        pet.happiness = newHappiness
+        pet.affection = newAffection
+
+        await this.setAbilityCooldown(petId, 'PLAY', 60 * 1000) // 1 minute cooldown
+
+        return { ok: true, happiness: newHappiness, affection: newAffection }
+      } catch (err: any) {
+        this.error = err.message
+        return { ok: false, message: err.message }
       }
     },
 
@@ -461,10 +588,18 @@ export const usePlayerStore = defineStore('player', {
         let streak = this.profile.daily_streak || 0
 
         if (lastClaim) {
-          const diffDays = Math.floor(
-            (now.getTime() - lastClaim.getTime()) / (1000 * 60 * 60 * 24)
-          )
-          streak = diffDays === 1 ? streak + 1 : 1
+          // Compare calendar days, not raw 24h windows — claiming at 11pm
+          // and again at 9am the next day is still a 1-day gap.
+          const lastDateOnly = new Date(lastClaim.getFullYear(), lastClaim.getMonth(), lastClaim.getDate())
+          const nowDateOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+          const diffDays = Math.round((nowDateOnly.getTime() - lastDateOnly.getTime()) / (1000 * 60 * 60 * 24))
+
+          if (diffDays === 1) {
+            streak += 1
+          } else if (diffDays > 1) {
+            streak = 1
+          }
+          // diffDays === 0 is caught by the early return above
         } else {
           streak = 1
         }
