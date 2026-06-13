@@ -69,28 +69,15 @@
             <p class="text-xs text-yellow-200 mt-2">{{ petCollection.length }}/50 Pets Owned</p>
           </NuxtLink>
 
-          <button
-            @click="feedActivePet"
-            :disabled="!playerStore.activePet"
-            class="rounded-2xl border-2 border-blue-500 bg-linear-to-br from-blue-900 to-cyan-900 p-6 hover:border-blue-300 hover:shadow-lg hover:scale-105 transition cursor-pointer disabled:opacity-50"
-          >
-            <p class="text-4xl mb-2">🍖</p>
-            <h3 class="font-bold text-lg">Feed Active Pet</h3>
-            <p class="text-xs text-blue-200 mt-1">+10 Gold</p>
-            <p class="text-xs text-blue-200 mt-2" v-if="playerStore.activePet">
-              Hunger: {{ playerStore.activePet.hunger }}/100
-            </p>
-          </button>
-
-          <button
-            @click="battleRandom"
+          <NuxtLink
+            to="/battle"
             class="rounded-2xl border-2 border-purple-500 bg-linear-to-br from-purple-900 to-pink-900 p-6 hover:border-purple-300 hover:shadow-lg hover:scale-105 transition cursor-pointer"
           >
             <p class="text-4xl mb-2">⚔️</p>
             <h3 class="font-bold text-lg">Battle Arena</h3>
-            <p class="text-xs text-purple-200 mt-1">PvP Mode</p>
-            <p class="text-xs text-purple-200 mt-2">Earn 50 Gold</p>
-          </button>
+            <p class="text-xs text-purple-200 mt-1">Choose your pet & arena</p>
+            <p class="text-xs text-purple-200 mt-2">Earn Gold & EXP</p>
+          </NuxtLink>
 
           <button
             @click="openLeaderboard"
@@ -172,12 +159,7 @@
 
             <!-- Quick actions for pet -->
             <div class="space-y-3">
-              <button
-                @click="feedActivePet"
-                class="w-full bg-green-600 hover:bg-green-500 py-3 rounded-lg font-bold transition transform hover:scale-105"
-              >
-                🍖 FEED (+10 Gold)
-              </button>
+
               <button
                 @click="increasePetAffection"
                 class="w-full bg-pink-600 hover:bg-pink-500 py-3 rounded-lg font-bold transition transform hover:scale-105"
@@ -446,17 +428,6 @@ const logout = async () => {
   await navigateTo('/login')
 }
 
-const feedActivePet = async () => {
-  if (!playerStore.activePet) return
-
-  try {
-    await playerStore.feedPet(playerStore.activePet.id)
-    showNotification('✨ Your pet is happy and full!')
-  } catch (err) {
-    showNotification('❌ Failed to feed pet')
-  }
-}
-
 const increasePetAffection = async () => {
   if (!playerStore.activePet) return
 
@@ -481,33 +452,6 @@ const selectActivePet = async (petId: string) => {
     showNotification('⭐ Pet selected!', 1000)
   } catch (err) {
     showNotification('❌ Failed to select pet')
-  }
-}
-
-const battleRandom = async () => {
-  try {
-    if (!playerStore.activePet) {
-      showNotification('❌ You need an active pet!')
-      return
-    }
-
-    notification.value = '⚔️ Battle in progress...'
-
-    await new Promise(resolve => setTimeout(resolve, 2000))
-
-    // Random win/loss (60% win rate)
-    const won = Math.random() > 0.4
-
-    if (won) {
-      await playerStore.addGold(50)
-      await playerStore.addExperience(playerStore.activePet.id, 50)
-      await playerStore.incrementChallengeProgress('BATTLE_WIN')
-      showNotification('🎉 Victory! +50 Gold, +50 EXP', 3000)
-    } else {
-      showNotification('😢 Defeat! Better luck next time', 3000)
-    }
-  } catch (err) {
-    showNotification('❌ Battle failed')
   }
 }
 
@@ -543,11 +487,7 @@ const fetchLeaderboard = async () => {
   loadingLeaderboard.value = true
   try {
     const { data, error } = await supabase
-      .from('leaderboard')
-      .select('*')
-      .order('level', { ascending: false })
-      .order('experience', { ascending: false })
-      .limit(100)
+      .rpc('get_leaderboard_top_100')
 
     if (error) throw error
     leaderboardData.value = data || []

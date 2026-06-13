@@ -93,7 +93,11 @@ export const usePlayerStore = defineStore('player', {
 
     async fetchUserPets(userId: string) {
       const supabase = useSupabaseClient()
+      // apply decay before loading pets
+const { error: decayError } = await supabase
+  .rpc('apply_pet_decay', { p_user_id: userId });
 
+if (decayError) throw decayError;
       try {
         const { data, error } = await supabase
           .from('user_pets')
@@ -488,5 +492,54 @@ export const usePlayerStore = defineStore('player', {
         return null
       }
     },
+    async fetchActivePetAbilities() {
+  const supabase = useSupabaseClient()
+  if (!this.activePet?.pet_species_id) return []
+
+  const { data, error } = await supabase
+    .from('pet_abilities')
+    .select('*')
+    .eq('pet_species_id', this.activePet.pet_species_id)
+    .order('learn_level', { ascending: true })
+
+  if (error) throw error
+  return data ?? []
+},
+async getAbilityCooldown(abilityKey: string) {
+  const supabase = useSupabaseClient()
+  if (!this.profile || !this.activePet) return null
+
+  const { data, error } = await supabase
+    .from('user_pet_ability_cooldowns')
+    .select('cooldown_until')
+    .eq('user_id', this.profile.id)
+    .eq('pet_id', this.activePet.id)
+    .eq('ability_key', abilityKey)
+    .single()
+
+  if (error && error.code !== 'PGRST116') throw error // single() no row
+  return data?.cooldown_until ? new Date(data.cooldown_until) : null
+},
+
+async setAbilityCooldown(abilityKey: string, cooldownMs: number) {
+  const supabase = useSupabaseClient()
+  if (!this.profile || !this.activePet) return
+
+  const now = new Date()
+  const cooldownUntil = new Date(now.getTime() + cooldownMs)
+
+  const { error } = await supabase
+    .from('user_pet_ability_cooldowns')
+    .upsert({
+      user_id: this.profile.id,
+      pet_id: this.activePet.id,
+      ability_key: abilityKey,
+      cooldown_until: cooldownUntil.toISOString(),
+      updated_at: now.toISOString(),
+    })
+
+  if (error) throw error
+},
+
   },
 })

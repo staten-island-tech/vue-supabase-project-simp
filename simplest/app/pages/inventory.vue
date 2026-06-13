@@ -358,15 +358,26 @@ const useFood = async (food: any) => {
   try {
     const hungerReduction = { basic: 20, premium: 50, special: 100 }[food.food_kind as string] ?? 20
     const happinessBoost  = { basic: 5,  premium: 15, special: 30  }[food.food_kind as string] ?? 5
+    const hpHeal         = { basic: 15, premium: 35, special: 80 }[food.food_kind as string] ?? 15
 
-    const newHunger    = Math.max(0, playerStore.activePet.hunger - hungerReduction)
-    const newHappiness = Math.min(100, playerStore.activePet.happiness + happinessBoost)
+    const pet = playerStore.activePet
+    const newHunger = Math.max(0, pet.hunger - hungerReduction)
+    const newHappiness = Math.min(100, pet.happiness + happinessBoost)
 
-    await supabase.from('user_pets').update({ hunger: newHunger, happiness: newHappiness })
-      .eq('id', playerStore.activePet.id)
+    // IMPORTANT: restore HP but never above max_hp
+    const petMaxHp = pet.max_hp ?? pet.current_hp ?? 1
+    const newHp = Math.min(petMaxHp, (pet.current_hp ?? 0) + hpHeal)
 
-    playerStore.activePet.hunger    = newHunger
+    await supabase.from('user_pets').update({
+      hunger: newHunger,
+      happiness: newHappiness,
+      current_hp: newHp,
+      updated_at: new Date().toISOString(),
+    }).eq('id', pet.id)
+
+    playerStore.activePet.hunger = newHunger
     playerStore.activePet.happiness = newHappiness
+    playerStore.activePet.current_hp = newHp
 
     // Decrement food count
     await supabase
@@ -374,9 +385,9 @@ const useFood = async (food: any) => {
       .update({ food_count: food.food_count - 1 })
       .eq('user_id', playerStore.profile.id)
       .eq('shop_item_id', food.shop_item_id)
-
+await playerStore.incrementChallengeProgress('FEED_PET')
     await fetchInventory()
-    showNotification(`🍽️ ${playerStore.activePet.species?.name ?? 'Your pet'} enjoyed the ${food.name}!`)
+    showNotification(`🍽️ ${pet.species?.name ?? 'Your pet'} enjoyed the ${food.name}! (+HP)`)
   } catch (err: any) {
     showNotification(`❌ ${err.message}`, true)
   } finally {
