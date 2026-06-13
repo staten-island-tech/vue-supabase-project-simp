@@ -93,12 +93,15 @@ export const usePlayerStore = defineStore('player', {
 
     async fetchUserPets(userId: string) {
       const supabase = useSupabaseClient()
-      // apply decay before loading pets
-const { error: decayError } = await supabase
-  .rpc('apply_pet_decay', { p_user_id: userId });
 
-if (decayError) throw decayError;
       try {
+        // Apply hunger/happiness decay based on time since last update.
+        // Wrapped in the same try/catch so a decay failure never blocks
+        // the whole player load.
+        const { error: decayError } = await supabase
+          .rpc('apply_pet_decay', { p_user_id: userId })
+        if (decayError) throw decayError
+
         const { data, error } = await supabase
           .from('user_pets')
           .select('*, pet_species(*)')
@@ -492,54 +495,55 @@ if (decayError) throw decayError;
         return null
       }
     },
+
     async fetchActivePetAbilities() {
-  const supabase = useSupabaseClient()
-  if (!this.activePet?.pet_species_id) return []
+      const supabase = useSupabaseClient()
+      if (!this.activePet?.pet_species_id) return []
 
-  const { data, error } = await supabase
-    .from('pet_abilities')
-    .select('*')
-    .eq('pet_species_id', this.activePet.pet_species_id)
-    .order('learn_level', { ascending: true })
+      const { data, error } = await supabase
+        .from('pet_abilities')
+        .select('*')
+        .eq('pet_species_id', this.activePet.pet_species_id)
+        .order('learn_level', { ascending: true })
 
-  if (error) throw error
-  return data ?? []
-},
-async getAbilityCooldown(abilityKey: string) {
-  const supabase = useSupabaseClient()
-  if (!this.profile || !this.activePet) return null
+      if (error) throw error
+      return data ?? []
+    },
 
-  const { data, error } = await supabase
-    .from('user_pet_ability_cooldowns')
-    .select('cooldown_until')
-    .eq('user_id', this.profile.id)
-    .eq('pet_id', this.activePet.id)
-    .eq('ability_key', abilityKey)
-    .single()
+    async getAbilityCooldown(petId: string, abilityKey: string) {
+      const supabase = useSupabaseClient()
+      if (!this.profile) return null
 
-  if (error && error.code !== 'PGRST116') throw error // single() no row
-  return data?.cooldown_until ? new Date(data.cooldown_until) : null
-},
+      const { data, error } = await supabase
+        .from('user_pet_ability_cooldowns')
+        .select('cooldown_until')
+        .eq('user_id', this.profile.id)
+        .eq('pet_id', petId)
+        .eq('ability_key', abilityKey)
+        .maybeSingle()
 
-async setAbilityCooldown(abilityKey: string, cooldownMs: number) {
-  const supabase = useSupabaseClient()
-  if (!this.profile || !this.activePet) return
+      if (error) throw error
+      return data?.cooldown_until ? new Date(data.cooldown_until) : null
+    },
 
-  const now = new Date()
-  const cooldownUntil = new Date(now.getTime() + cooldownMs)
+    async setAbilityCooldown(petId: string, abilityKey: string, cooldownMs: number) {
+      const supabase = useSupabaseClient()
+      if (!this.profile) return
 
-  const { error } = await supabase
-    .from('user_pet_ability_cooldowns')
-    .upsert({
-      user_id: this.profile.id,
-      pet_id: this.activePet.id,
-      ability_key: abilityKey,
-      cooldown_until: cooldownUntil.toISOString(),
-      updated_at: now.toISOString(),
-    })
+      const now = new Date()
+      const cooldownUntil = new Date(now.getTime() + cooldownMs)
 
-  if (error) throw error
-},
+      const { error } = await supabase
+        .from('user_pet_ability_cooldowns')
+        .upsert({
+          user_id: this.profile.id,
+          pet_id: petId,
+          ability_key: abilityKey,
+          cooldown_until: cooldownUntil.toISOString(),
+          updated_at: now.toISOString(),
+        })
 
+      if (error) throw error
+    },
   },
 })
