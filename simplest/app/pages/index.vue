@@ -49,7 +49,7 @@
       <!-- Main content -->
       <div class="max-w-7xl mx-auto px-6 py-8">
         <!-- Quick actions row -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
           <NuxtLink
             to="/inventory"
             class="rounded-2xl border-2 border-amber-500 bg-linear-to-br from-amber-900 to-yellow-900 p-6 hover:border-amber-300 hover:shadow-lg hover:scale-105 transition cursor-pointer"
@@ -66,7 +66,7 @@
             <p class="text-4xl mb-2">🎰</p>
             <h3 class="font-bold text-lg">Shop</h3>
             <p class="text-xs text-yellow-200 mt-1">Shop for eggs and food</p>
-            <p class="text-xs text-yellow-200 mt-2">{{ petCollection.length }}/50 Pets Owned</p>
+            <p class="text-xs text-yellow-200 mt-2">Hatch rare pets!</p>
           </NuxtLink>
 
           <NuxtLink
@@ -75,18 +75,28 @@
           >
             <p class="text-4xl mb-2">⚔️</p>
             <h3 class="font-bold text-lg">Battle Arena</h3>
-            <p class="text-xs text-purple-200 mt-1">Choose your pet & arena</p>
+            <p class="text-xs text-purple-200 mt-1">Fight with your team</p>
             <p class="text-xs text-purple-200 mt-2">Earn Gold & EXP</p>
+          </NuxtLink>
+
+          <NuxtLink
+            to="/training"
+            class="rounded-2xl border-2 border-green-500 bg-linear-to-br from-green-900 to-emerald-900 p-6 hover:border-green-300 hover:shadow-lg hover:scale-105 transition cursor-pointer"
+          >
+            <p class="text-4xl mb-2">🏋️</p>
+            <h3 class="font-bold text-lg">Training Area</h3>
+            <p class="text-xs text-green-200 mt-1">Mini-game for Gold & EXP</p>
+            <p class="text-xs text-green-200 mt-2">Pop the orbs!</p>
           </NuxtLink>
 
           <button
             @click="openLeaderboard"
-            class="rounded-2xl border-2 border-green-500 bg-linear-to-br from-green-900 to-emerald-900 p-6 hover:border-green-300 hover:shadow-lg hover:scale-105 transition cursor-pointer"
+            class="rounded-2xl border-2 border-cyan-500 bg-linear-to-br from-cyan-900 to-blue-900 p-6 hover:border-cyan-300 hover:shadow-lg hover:scale-105 transition cursor-pointer"
           >
             <p class="text-4xl mb-2">🏆</p>
             <h3 class="font-bold text-lg">Leaderboards</h3>
-            <p class="text-xs text-green-200 mt-1">Top Trainers</p>
-            <p class="text-xs text-green-200 mt-2">Ranked by Level</p>
+            <p class="text-xs text-cyan-200 mt-1">Top Trainers</p>
+            <p class="text-xs text-cyan-200 mt-2">Ranked by Level</p>
           </button>
         </div>
 
